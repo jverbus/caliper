@@ -247,3 +247,10 @@
 - Added integration coverage asserting shadow evaluation does not create live assignment events and records audit trail (`tests/integration/test_api_assign.py`).
 - Documented shadow mode scaffold behavior and acceptance mapping (`docs/execution/SHADOW_MODE_SCAFFOLD.md`).
 - Opened PR #43 for P9-002 (`chunk/p9-002-shadow-mode-scaffold`).
+- CI for PR #43 passed and chunk **P9-002 Shadow mode scaffold** was merged (`a0c1b3a`).
+- Started chunk **P9-003 Replay export and OPE scaffold**.
+- Added replay export helpers that emit deterministic per-decision records containing context, chosen action, propensity, reward, and assignment/exposure/outcome timestamps (`packages/py-caliper-ope/src/caliper_ope/replay.py`).
+- Added `py-caliper-ope` scaffold contracts for future estimators plus dataset summary utility (`packages/py-caliper-ope/src/caliper_ope/estimators.py`, `packages/py-caliper-ope/src/caliper_ope/__init__.py`).
+- Added unit coverage for replay export integrity and scaffold summary behavior (`tests/unit/test_replay_export.py`).
+- Documented replay export behavior and acceptance mapping (`docs/execution/REPLAY_EXPORT.md`).
+- Opened PR #44 for P9-003 (`chunk/p9-003-replay-export-ope-scaffold`).
