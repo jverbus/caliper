@@ -240,6 +240,93 @@ def test_assign_context_schema_rejects_missing_and_disallowed_fields(
     assert "disallowed" in disallowed.json()["detail"]
 
 
+def test_assign_shadow_evaluates_parallel_policy_without_live_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post("/v1/jobs", json=_job_payload(workspace_id=workspace_id)).json()
+    job_id = created["job_id"]
+    _register_arms(client, workspace_id, job_id)
+
+    live_snapshot = client.post(
+        f"/v1/jobs/{job_id}/policy-snapshots",
+        json={
+            "workspace_id": workspace_id,
+            "policy_family": "fixed_split",
+            "policy_version": "live-v1",
+            "payload": {"weights": {"arm-a": 1.0, "arm-b": 0.0}},
+        },
+    )
+    assert live_snapshot.status_code == 200
+    live_snapshot_id = live_snapshot.json()["snapshot_id"]
+    activate = client.post(
+        f"/v1/jobs/{job_id}/policy-snapshots/{live_snapshot_id}/activate",
+        json={"workspace_id": workspace_id},
+    )
+    assert activate.status_code == 200
+
+    snapshot = client.post(
+        f"/v1/jobs/{job_id}/policy-snapshots",
+        json={
+            "workspace_id": workspace_id,
+            "policy_family": "fixed_split",
+            "policy_version": "shadow-v1",
+            "payload": {"weights": {"arm-a": 0.0, "arm-b": 1.0}},
+        },
+    )
+    assert snapshot.status_code == 200
+    snapshot_id = snapshot.json()["snapshot_id"]
+
+    live_assign = client.post(
+        "/v1/assign",
+        json={
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "unit_id": "visitor-live",
+            "candidate_arms": ["arm-a", "arm-b"],
+            "context": {"country": "US"},
+            "idempotency_key": "req-live",
+        },
+    )
+    assert live_assign.status_code == 200
+
+    shadow_assign = client.post(
+        "/v1/assign:shadow",
+        json={
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "unit_id": "visitor-shadow",
+            "candidate_arms": ["arm-a", "arm-b"],
+            "context": {"country": "US"},
+            "idempotency_key": "req-shadow",
+            "shadow_snapshot_id": snapshot_id,
+        },
+    )
+    assert shadow_assign.status_code == 200
+    body = shadow_assign.json()
+
+    assert body["live_decision"]["arm_id"] == "arm-a"
+    assert body["shadow_decision"]["arm_id"] == "arm-b"
+
+    repository = SQLRepository(dependencies.get_session_factory())
+    live_persisted = repository.get_decision(live_assign.json()["decision_id"])
+    assert live_persisted is not None
+    assert repository.get_decision(body["live_decision"]["decision_id"]) is None
+    assert repository.get_decision(body["shadow_decision"]["decision_id"]) is None
+
+    events = repository.replay(workspace_id=workspace_id, job_id=job_id)
+    assert len([event for event in events if event.event_type == "decision.assigned"]) == 1
+
+    audit = client.get(f"/v1/jobs/{job_id}/audit", params={"workspace_id": workspace_id})
+    assert audit.status_code == 200
+    actions = [entry["action"] for entry in audit.json()]
+    assert "decision.shadow_evaluated" in actions
+
+
 def test_assign_context_schema_applies_redaction_before_persistence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

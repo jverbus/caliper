@@ -89,6 +89,14 @@ class PolicySnapshotRepository(Protocol):
 
     def list_snapshots(self, workspace_id: str, job_id: str) -> list[PolicySnapshot]: ...
 
+    def get_snapshot(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        snapshot_id: str,
+    ) -> PolicySnapshot | None: ...
+
     def activate_snapshot(
         self,
         *,
