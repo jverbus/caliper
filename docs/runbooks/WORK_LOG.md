@@ -51,3 +51,9 @@
 - Added projection aggregate refresh + rebuild audit persistence on SQL repositories (`packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`).
 - Added integration coverage for rebuild consistency and audit records (`tests/integration/test_projection_rebuild_sqlite.py`).
 - Documented projection rebuild behavior and API surface (`docs/execution/PROJECTION_REBUILD.md`).
+- CI for PR #9 passed and chunk **P1-005 Projection rebuild support** was merged (`9e393f1`).
+- Started chunk **P2-001 API app skeleton**.
+- Refactored API entrypoint to `create_app()` with liveness (`/health`, `/healthz`) and readiness (`/readyz`) endpoints (`apps/api/main.py`).
+- Added reusable API dependency wiring for settings, engine/session factory bootstrap, repository construction, and shared-mode bearer auth scaffold (`apps/api/dependencies.py`).
+- Added integration coverage for health/readiness behavior and shared-profile auth enforcement (`tests/integration/test_api_app_skeleton.py`).
+- Documented endpoint/dependency/auth behavior in `docs/execution/API_APP_SKELETON.md`.
