@@ -185,3 +185,8 @@
 - Added dedicated web demo execution doc with run instructions and acceptance mapping (`docs/execution/WEB_DEMO.md`).
 - Added integration coverage validating web demo success in both embedded and service mode, including segment findings in generated reports (`tests/integration/test_web_demo.py`).
 - Addressed PR #33 CI typecheck blocker by widening web demo request context typing to match adapter contract (`examples/web_demo/demo.py`).
+- CI for PR #33 passed and chunk **P6-003 Web demo** was merged (`c339c64`).
+- Started chunk **P7-001 Email adapter core**.
+- Added email adapter tranche assignment + send-plan contracts with pluggable provider handoff and delivered-send exposure logging (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
+- Added unit coverage for tranche assignment idempotency-key shaping and provider delivery/exposure behavior (`tests/unit/test_email_adapter.py`).
+- Documented email adapter core API surface and acceptance mapping (`docs/execution/EMAIL_ADAPTER_CORE.md`).
