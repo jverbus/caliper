@@ -114,3 +114,8 @@
 - Replaced worker scaffold entrypoint with polling/one-shot scheduler runner (`apps/worker/main.py`).
 - Added integration coverage for scheduling, due-task execution, and restart recovery (`tests/integration/test_worker_scheduler.py`).
 - Documented worker scheduler behavior, retries, and recovery (`docs/execution/WORKER_SCHEDULER_LOOP.md`).
+- CI for PR #20 passed and chunk **P3-007 Worker or scheduler loop** was merged (`292bee1`).
+- Started chunk **P4-001 Epsilon-greedy**.
+- Added epsilon-greedy policy weight resolution in assignment engine with deterministic selection compatibility and policy-family dispatch (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added seeded simulation + propensity diagnostics coverage for epsilon-greedy behavior (`tests/unit/test_assignment_engine.py`).
+- Documented epsilon-greedy policy behavior and parameter contract (`docs/execution/EPSILON_GREEDY_POLICY.md`).
