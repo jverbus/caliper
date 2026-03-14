@@ -219,3 +219,10 @@
 - Expanded CLI operator controls with `promote-policy`, `rollback-policy`, and `job-audit` commands plus GET query support (`apps/cli/main.py`).
 - Added/updated tests covering operator controls and rollback correctness + audit visibility (`tests/unit/test_cli_commands.py`, `tests/integration/test_api_policy_snapshots.py`).
 - Documented pause/promote/rollback UX and updated CLI docs (`docs/execution/PAUSE_PROMOTE_ROLLBACK_UX.md`, `docs/execution/CLI.md`).
+- CI for PR #39 passed and chunk **P8-002 Pause, promote, and rollback UX** was merged (`b9263d8`).
+- Started chunk **P8-003 Packaging and install flow**.
+- Implemented deterministic demo-data seeding script that materializes embedded SQLite DBs plus report artifacts and manifest output (`scripts/seed_demo_data.py`).
+- Added unit coverage for demo-data seeding artifact/manifest behavior (`tests/unit/test_seed_demo_data.py`).
+- Expanded service compose runtime to include API + worker with shared `PYTHONPATH` and Postgres wiring (`deploy/compose/docker-compose.service.yml`).
+- Added packaging/install runbook with fresh-machine install flow, local data directory setup, seeded demo-data workflow, and compose service-mode instructions (`docs/execution/PACKAGING_INSTALL_FLOW.md`).
+- Updated README quickstart to include seeding and point operators to packaging/install runbook (`README.md`).
