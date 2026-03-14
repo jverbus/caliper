@@ -5,6 +5,7 @@ from caliper_core.models import (
     ArmType,
     AssignResult,
     ExposureCreate,
+    GuardrailSpec,
     Job,
     ObjectiveSpec,
     OutcomeCreate,
@@ -31,7 +32,7 @@ def test_sqlite_job_arm_decision_exposure_outcome_roundtrip() -> None:
         name="Homepage ranking",
         surface_type=SurfaceType.WEB,
         objective_spec=ObjectiveSpec(reward_formula="click"),
-        guardrail_spec={"rules": []},
+        guardrail_spec=GuardrailSpec(),
         policy_spec=PolicySpec(
             policy_family=PolicyFamily.FIXED_SPLIT,
             params={"weights": [0.5, 0.5]},

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
@@ -33,7 +33,7 @@ class SQLiteRepository(
         self._session_factory = session_factory
 
     @contextmanager
-    def _session(self) -> Session:
+    def _session(self) -> Iterator[Session]:
         session = self._session_factory()
         try:
             yield session
