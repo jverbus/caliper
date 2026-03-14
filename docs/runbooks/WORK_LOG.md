@@ -87,3 +87,8 @@
 - Added database-backed request idempotency persistence (`idempotency_keys`) with request-hash conflict protection and cached response replay (`packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added integration coverage for retry stability, candidate-arm subset enforcement, conflicting idempotency-key reuse, and persisted assignment event/decision records (`tests/integration/test_api_assign.py`).
 - Documented assign endpoint and idempotency behavior (`docs/execution/ASSIGN_ENDPOINT.md`).
+- CI for PR #15 passed and chunk **P3-002 Assign endpoint and idempotency** was merged (`7a692b2`).
+- Started chunk **P3-003 Exposure ingest**.
+- Added `POST /v1/exposures` with job/decision scope validation, exposure persistence, canonical `decision.exposed` event emission, deterministic duplicate-safe retries, and audit entries (`apps/api/main.py`).
+- Added integration coverage for exposure persistence, duplicate-safe retries, and decision-context validation (`tests/integration/test_api_exposures.py`).
+- Documented exposure ingest behavior (`docs/execution/EXPOSURE_INGEST.md`).
