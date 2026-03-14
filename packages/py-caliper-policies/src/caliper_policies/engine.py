@@ -61,7 +61,7 @@ class AssignmentEngine:
             for arm in arms
             if arm.workspace_id == request.workspace_id
             and arm.job_id == job.job_id
-            and arm.state is ArmState.ACTIVE
+            and arm.state == ArmState.ACTIVE
         ]
         if request.candidate_arms is not None:
             candidate_set = set(request.candidate_arms)
@@ -71,7 +71,12 @@ class AssignmentEngine:
             raise AssignmentError(msg)
         return active_arms
 
-    def _policy_weights(self, *, job: Job, arm_ids: list[str]) -> tuple[list[WeightedArm], str, bool]:
+    def _policy_weights(
+        self,
+        *,
+        job: Job,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], str, bool]:
         if job.policy_spec.policy_family is PolicyFamily.EPSILON_GREEDY:
             weighted, fallback_used = self._epsilon_greedy_weights(job=job, arm_ids=arm_ids)
             return weighted, "epsilon_greedy_policy", fallback_used
@@ -79,7 +84,12 @@ class AssignmentEngine:
         weighted, fallback_used = self._fixed_split_weights(job=job, arm_ids=arm_ids)
         return weighted, "fixed_split_weighted_draw", fallback_used
 
-    def _fixed_split_weights(self, *, job: Job, arm_ids: list[str]) -> tuple[list[WeightedArm], bool]:
+    def _fixed_split_weights(
+        self,
+        *,
+        job: Job,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], bool]:
         configured = job.policy_spec.params.get("weights")
         if isinstance(configured, dict):
             raw = {arm_id: float(configured.get(arm_id, 0.0)) for arm_id in arm_ids}
@@ -96,7 +106,12 @@ class AssignmentEngine:
         equal = 1.0 / len(arm_ids)
         return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)
 
-    def _epsilon_greedy_weights(self, *, job: Job, arm_ids: list[str]) -> tuple[list[WeightedArm], bool]:
+    def _epsilon_greedy_weights(
+        self,
+        *,
+        job: Job,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], bool]:
         epsilon_raw = job.policy_spec.params.get("epsilon", 0.1)
         try:
             epsilon = float(epsilon_raw)
