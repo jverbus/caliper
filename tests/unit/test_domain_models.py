@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from pydantic import ValidationError
 import pytest
-
 from caliper_core.models import (
     AssignResult,
     ExposureCreate,
@@ -11,6 +9,7 @@ from caliper_core.models import (
     JobCreate,
     PolicyFamily,
 )
+from pydantic import ValidationError
 
 
 def _job_payload() -> dict[str, object]:

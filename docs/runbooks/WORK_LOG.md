@@ -26,3 +26,4 @@
 - Added JSON Schema registry/generation helpers for shared schema export (`packages/py-caliper-core/src/caliper_core/schemas.py`).
 - Added unit coverage for required-field validation, enum parsing, and schema generation (`tests/unit/test_domain_models.py`, `tests/unit/test_schema_generation.py`).
 - Documented schema package usage in `docs/execution/SHARED_SCHEMA_PACKAGE.md`.
+- Fixed CI lint blocker on PR #5 by applying Ruff import/order formatting fixes (`packages/py-caliper-core/src/caliper_core/__init__.py`, `tests/unit/test_domain_models.py`).
