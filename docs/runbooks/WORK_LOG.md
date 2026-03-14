@@ -153,3 +153,9 @@
 - Added unit coverage for both service-mode and embedded-mode SDK workflows (`tests/unit/test_python_sdk.py`).
 - Documented SDK behavior and usage examples (`docs/execution/PYTHON_SDK.md`).
 - Fixed PR #27 CI typecheck blockers by tightening `ServiceCaliperClient._request` return typing and updating SDK unit fixtures to use typed `GuardrailSpec` (`packages/py-sdk/src/caliper_sdk/client.py`, `tests/unit/test_python_sdk.py`).
+- CI for PR #27 passed and chunk **P5-002 Python SDK** was merged (`5b5dcc8`).
+- Started chunk **P5-003 Workflow adapter**.
+- Added workflow adapter API with request-time assignment helper + executed exposure logging and typed workflow assignment result (`packages/py-caliper-adapters/src/caliper_adapters/workflow.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
+- Added latency/cost/objective outcome logging and optional human acceptance outcome helper (`packages/py-caliper-adapters/src/caliper_adapters/workflow.py`).
+- Added unit coverage for workflow assignment, execution metrics logging, and human acceptance outcome behavior (`tests/unit/test_workflow_adapter.py`).
+- Documented workflow adapter API and acceptance mapping (`docs/execution/WORKFLOW_ADAPTER.md`).
