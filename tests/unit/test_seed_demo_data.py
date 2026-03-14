@@ -4,9 +4,12 @@ import importlib.util
 import json
 import sys
 from pathlib import Path
+from types import ModuleType
+
+from pytest import MonkeyPatch
 
 
-def _load_seed_demo_data_module():
+def _load_seed_demo_data_module() -> ModuleType:
     repo_root = Path(__file__).resolve().parents[2]
     if str(repo_root) not in sys.path:
         sys.path.insert(0, str(repo_root))
@@ -24,7 +27,7 @@ def _load_seed_demo_data_module():
 seed_demo_data = _load_seed_demo_data_module()
 
 
-def _fake_runner(*, mode: str, db_url: str, api_url: str, api_token: str | None):
+def _fake_runner(*, mode: str, db_url: str, api_url: str, api_token: str | None) -> dict[str, str]:
     assert mode == "embedded"
     assert db_url.startswith("sqlite:///")
     assert api_url == "http://127.0.0.1:8000"
@@ -36,7 +39,9 @@ def _fake_runner(*, mode: str, db_url: str, api_url: str, api_token: str | None)
     }
 
 
-def test_seed_embedded_demo_data_writes_expected_artifacts(tmp_path: Path, monkeypatch) -> None:
+def test_seed_embedded_demo_data_writes_expected_artifacts(
+    tmp_path: Path, monkeypatch: MonkeyPatch
+) -> None:
     monkeypatch.setattr(
         seed_demo_data,
         "SURFACES",
@@ -61,7 +66,7 @@ def test_seed_embedded_demo_data_writes_expected_artifacts(tmp_path: Path, monke
     assert (report_dir / "workflow" / "report.html").read_text(encoding="utf-8") == "<h1>demo</h1>"
 
 
-def test_main_writes_manifest(tmp_path: Path, monkeypatch) -> None:
+def test_main_writes_manifest(tmp_path: Path, monkeypatch: MonkeyPatch) -> None:
     monkeypatch.setattr(
         seed_demo_data,
         "SURFACES",

@@ -226,3 +226,5 @@
 - Expanded service compose runtime to include API + worker with shared `PYTHONPATH` and Postgres wiring (`deploy/compose/docker-compose.service.yml`).
 - Added packaging/install runbook with fresh-machine install flow, local data directory setup, seeded demo-data workflow, and compose service-mode instructions (`docs/execution/PACKAGING_INSTALL_FLOW.md`).
 - Updated README quickstart to include seeding and point operators to packaging/install runbook (`README.md`).
+- Investigated PR #40 CI failure in `quality` job `make typecheck`; added explicit pytest fixture/helper typing in seed-data unit tests to satisfy strict mypy (`tests/unit/test_seed_demo_data.py`, `5d023f8`).
+- Pushed fix to `chunk/p8-003-packaging-install-flow`; PR #40 checks rerunning.
