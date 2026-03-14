@@ -5,7 +5,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from caliper_storage.sqlalchemy_models import Base
+from caliper_storage.migrations import upgrade
 
 
 def build_engine(db_url: str) -> Engine:
@@ -16,7 +16,7 @@ def build_engine(db_url: str) -> Engine:
 
 
 def init_db(engine: Engine) -> None:
-    Base.metadata.create_all(bind=engine)
+    upgrade(engine)
 
 
 def make_session_factory(engine: Engine) -> sessionmaker[Session]:
