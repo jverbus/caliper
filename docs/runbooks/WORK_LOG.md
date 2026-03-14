@@ -31,3 +31,4 @@
 - Started chunk **P1-002 Storage interfaces and SQLite backend**.
 - Added concrete SQLite repository implementation for job/arm/decision/exposure/outcome persistence (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added SQLite integration persistence roundtrip coverage (`tests/integration/test_storage_sqlite.py`) and storage backend execution doc (`docs/execution/STORAGE_BACKEND.md`).
+- Fixed PR #6 CI typecheck blocker by correcting context-manager typing in SQLite repository sessions and using typed `GuardrailSpec` in integration fixtures (`ece47ca`).
