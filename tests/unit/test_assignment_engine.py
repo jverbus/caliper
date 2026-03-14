@@ -159,3 +159,64 @@ def test_epsilon_greedy_propensity_and_diagnostics_are_valid() -> None:
     assert result.diagnostics.scores == {"arm_a": 0.9, "arm_b": 0.1}
     assert 0.0 < result.propensity <= 1.0
     assert result.propensity == result.diagnostics.scores[result.arm_id]
+
+
+def test_ucb1_prefers_better_arms_in_seeded_simulation() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.UCB1,
+                params={
+                    "mean_rewards": {"arm_a": 0.7, "arm_b": 0.3},
+                    "pull_counts": {"arm_a": 120, "arm_b": 120},
+                    "exploration_c": 1.0,
+                },
+            ),
+        }
+    )
+    arms = [_arm("arm_a"), _arm("arm_b")]
+
+    counts: Counter[str] = Counter()
+    for idx in range(2000):
+        request = AssignRequest(
+            workspace_id="ws_demo",
+            job_id="job_1",
+            unit_id=f"u{idx}",
+            idempotency_key=f"req-{idx}",
+        )
+        result = engine.assign(job=job, request=request, arms=arms)
+        counts[result.arm_id] += 1
+
+    assert counts["arm_a"] > counts["arm_b"]
+    assert 0.5 < (counts["arm_a"] / 2000) < 0.7
+
+
+def test_ucb1_handles_cold_start_with_uniform_unseen_arms() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.UCB1,
+                params={
+                    "mean_rewards": {"arm_a": 0.9, "arm_b": 0.1},
+                    "pull_counts": {"arm_a": 0, "arm_b": 0},
+                },
+            ),
+        }
+    )
+    request = AssignRequest(
+        workspace_id="ws_demo",
+        job_id="job_1",
+        unit_id="u-cold",
+        idempotency_key="k-cold",
+    )
+
+    result = engine.assign(job=job, request=request, arms=[_arm("arm_a"), _arm("arm_b")])
+
+    assert result.diagnostics.reason == "ucb1_policy"
+    assert result.diagnostics.scores == {"arm_a": 0.5, "arm_b": 0.5}
+    assert result.diagnostics.fallback_used is False
+    assert result.propensity == 0.5

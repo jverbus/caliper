@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import math
 from dataclasses import dataclass
 
 from caliper_core.models import (
@@ -81,6 +82,10 @@ class AssignmentEngine:
             weighted, fallback_used = self._epsilon_greedy_weights(job=job, arm_ids=arm_ids)
             return weighted, "epsilon_greedy_policy", fallback_used
 
+        if job.policy_spec.policy_family is PolicyFamily.UCB1:
+            weighted, fallback_used = self._ucb1_weights(job=job, arm_ids=arm_ids)
+            return weighted, "ucb1_policy", fallback_used
+
         weighted, fallback_used = self._fixed_split_weights(job=job, arm_ids=arm_ids)
         return weighted, "fixed_split_weighted_draw", fallback_used
 
@@ -102,6 +107,66 @@ class AssignmentEngine:
                     ],
                     False,
                 )
+
+        equal = 1.0 / len(arm_ids)
+        return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)
+
+    def _ucb1_weights(
+        self,
+        *,
+        job: Job,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], bool]:
+        means_raw = job.policy_spec.params.get("mean_rewards")
+        means = (
+            {arm_id: float(means_raw.get(arm_id, 0.0)) for arm_id in arm_ids}
+            if isinstance(means_raw, dict)
+            else {arm_id: 0.0 for arm_id in arm_ids}
+        )
+
+        counts_raw = job.policy_spec.params.get("pull_counts")
+        counts = (
+            {arm_id: max(int(counts_raw.get(arm_id, 0)), 0) for arm_id in arm_ids}
+            if isinstance(counts_raw, dict)
+            else {arm_id: 0 for arm_id in arm_ids}
+        )
+
+        cold_start_arms = [arm_id for arm_id in arm_ids if counts[arm_id] <= 0]
+        if cold_start_arms:
+            cold_share = 1.0 / len(cold_start_arms)
+            return (
+                [
+                    WeightedArm(
+                        arm_id=arm_id,
+                        weight=(cold_share if arm_id in cold_start_arms else 0.0),
+                    )
+                    for arm_id in arm_ids
+                ],
+                False,
+            )
+
+        exploration_raw = job.policy_spec.params.get("exploration_c", 1.0)
+        try:
+            exploration_c = max(float(exploration_raw), 0.0)
+        except (TypeError, ValueError):
+            exploration_c = 1.0
+
+        total_pulls = sum(counts.values())
+        log_total = math.log(max(total_pulls, 1))
+        scores = {
+            arm_id: means[arm_id] + exploration_c * math.sqrt((2.0 * log_total) / counts[arm_id])
+            for arm_id in arm_ids
+        }
+
+        score_total = sum(scores.values())
+        if score_total > 0:
+            return (
+                [
+                    WeightedArm(arm_id=arm_id, weight=scores[arm_id] / score_total)
+                    for arm_id in arm_ids
+                ],
+                False,
+            )
 
         equal = 1.0 / len(arm_ids)
         return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)

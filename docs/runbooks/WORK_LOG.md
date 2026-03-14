@@ -120,3 +120,8 @@
 - Added seeded simulation + propensity diagnostics coverage for epsilon-greedy behavior (`tests/unit/test_assignment_engine.py`).
 - Documented epsilon-greedy policy behavior and parameter contract (`docs/execution/EPSILON_GREEDY_POLICY.md`).
 - Fixed PR #21 CI lint blockers by wrapping long assignment-engine method signatures and tightening active-arm enum comparison in eligibility filtering (`packages/py-caliper-policies/src/caliper_policies/engine.py`, `734df95`).
+- Started chunk **P4-002 UCB1**.
+- Added UCB1 policy-family routing in assignment engine with configurable mean rewards, pull counts, exploration multiplier, and normalized score-based propensities (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added explicit cold-start handling for unseen arms to guarantee safe initial exploration before UCB confidence scoring (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added seeded simulation and cold-start unit coverage for UCB1 diagnostics/propensity behavior (`tests/unit/test_assignment_engine.py`).
+- Documented UCB1 policy behavior and parameter contract (`docs/execution/UCB1_POLICY.md`).
