@@ -1,0 +1,15 @@
+{
+  "name": "caliper",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Caliper monorepo",
+  "scripts": {
+    "build": "pnpm --filter @caliper/ts-sdk build",
+    "lint": "pnpm --filter @caliper/ts-sdk lint",
+    "typecheck": "pnpm --filter @caliper/ts-sdk typecheck",
+    "test": "pnpm --filter @caliper/ts-sdk test"
+  },
+  "devDependencies": {
+    "typescript": "^5.8.3"
+  }
+}

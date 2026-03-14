@@ -1,0 +1,69 @@
+[project]
+name = "caliper"
+version = "0.1.0"
+description = "Caliper adaptive decision and measurement layer"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+  "alembic>=1.16.0",
+  "fastapi>=0.116.0",
+  "httpx>=0.28.0",
+  "pydantic>=2.11.0",
+  "pydantic-settings>=2.10.0",
+  "psycopg[binary]>=3.2.0",
+  "sqlalchemy>=2.0.0",
+  "structlog>=25.0.0",
+  "typer>=0.16.0",
+  "uvicorn>=0.35.0",
+]
+
+[dependency-groups]
+dev = [
+  "hypothesis>=6.130.0",
+  "mypy>=1.17.0",
+  "pytest>=8.4.0",
+  "pytest-cov>=6.2.0",
+  "ruff>=0.12.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
+pythonpath = [
+  "packages/py-caliper-core/src",
+  "packages/py-caliper-storage/src",
+  "packages/py-caliper-events/src",
+  "packages/py-caliper-policies/src",
+  "packages/py-caliper-reward/src",
+  "packages/py-caliper-reports/src",
+  "packages/py-caliper-adapters/src",
+  "packages/py-caliper-ope/src",
+  "packages/py-sdk/src",
+  "apps",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "UP", "B", "A", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+warn_return_any = true
+no_implicit_optional = true
+pretty = true
+explicit_package_bases = true
+mypy_path = [
+  "packages/py-caliper-core/src",
+  "packages/py-caliper-storage/src",
+  "packages/py-caliper-events/src",
+  "packages/py-sdk/src",
+]
