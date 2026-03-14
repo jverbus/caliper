@@ -97,3 +97,8 @@
 - Added `POST /v1/outcomes` with job/decision scope validation, outcome persistence, canonical `outcome.observed` event emission, deterministic duplicate-safe retries, and audit entries (`apps/api/main.py`).
 - Added integration coverage for delayed/numeric/binary outcomes, duplicate-safe retries, and decision-context validation (`tests/integration/test_api_outcomes.py`).
 - Documented outcome ingest behavior (`docs/execution/OUTCOME_INGEST.md`).
+- CI for PR #17 passed and chunk **P3-004 Outcome ingest** was merged (`4a2dcaa`).
+- Started chunk **P3-005 Reward engine**.
+- Added deterministic reward evaluation + normalized policy-update dataset builder (`packages/py-caliper-reward/src/caliper_reward/engine.py`, `packages/py-caliper-reward/src/caliper_reward/__init__.py`).
+- Added unit fixtures for reproducible reward values, penalty/cost impact, and attribution-window filtering (`tests/unit/test_reward_engine.py`).
+- Documented reward engine behavior and acceptance mapping (`docs/execution/REWARD_ENGINE.md`).
