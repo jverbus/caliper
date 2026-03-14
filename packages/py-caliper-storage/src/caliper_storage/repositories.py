@@ -447,6 +447,19 @@ class SQLRepository(
             rows = session.scalars(statement).all()
             return [self._row_to_policy_snapshot(row) for row in rows]
 
+    def get_snapshot(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        snapshot_id: str,
+    ) -> PolicySnapshot | None:
+        with self._session() as session:
+            row = session.get(PolicySnapshotRow, snapshot_id)
+            if row is None or row.workspace_id != workspace_id or row.job_id != job_id:
+                return None
+            return self._row_to_policy_snapshot(row)
+
     def activate_snapshot(
         self,
         *,

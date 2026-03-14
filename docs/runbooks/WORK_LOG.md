@@ -240,3 +240,9 @@
 - Added assignment-time context validation/redaction hooks keyed by `context_schema_version` (`packages/py-caliper-core/src/caliper_core/context.py`, `apps/api/main.py`).
 - Added integration coverage for required/disallowed context field validation and redaction persistence policy (`tests/integration/test_api_assign.py`).
 - Documented context schema contract and context storage policy (`docs/execution/CONTEXT_SCHEMA_VERSIONING.md`).
+- CI for PR #42 passed and chunk **P9-001 Context schema versioning** was merged (`9e69821`).
+- Started chunk **P9-002 Shadow mode scaffold**.
+- Added non-live `POST /v1/assign:shadow` evaluation flow that returns live vs shadow decisions for the same request context without persisting shadow decisions (`apps/api/main.py`, `packages/py-caliper-core/src/caliper_core/models.py`).
+- Added policy snapshot fetch helper for read-only shadow evaluation (`packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-core/src/caliper_core/interfaces.py`).
+- Added integration coverage asserting shadow evaluation does not create live assignment events and records audit trail (`tests/integration/test_api_assign.py`).
+- Documented shadow mode scaffold behavior and acceptance mapping (`docs/execution/SHADOW_MODE_SCAFFOLD.md`).

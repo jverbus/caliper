@@ -38,6 +38,8 @@ from caliper_core.models import (
     PolicySnapshotRollbackRequest,
     ReportGenerateRequest,
     ReportPayload,
+    ShadowAssignRequest,
+    ShadowAssignResult,
 )
 from caliper_policies.engine import AssignmentEngine, AssignmentError
 from caliper_reports import ReportGenerator
@@ -118,6 +120,52 @@ def _assign_request_hash(payload: AssignRequest) -> str:
     return _request_hash(payload)
 
 
+def _resolve_effective_job(
+    *,
+    repository: SQLRepository,
+    workspace_id: str,
+    job_id: str,
+) -> Job:
+    job = repository.get_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+    if workspace_id != job.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="workspace_id does not match the job workspace.",
+        )
+
+    active_snapshot = repository.get_active_snapshot(workspace_id, job_id)
+    if active_snapshot is None:
+        return job
+    return _apply_active_policy_snapshot(job=job, snapshot=active_snapshot)
+
+
+def _evaluate_assignment(
+    *,
+    repository: SQLRepository,
+    payload: AssignRequest,
+    effective_job: Job,
+) -> AssignResult:
+    try:
+        context_result = validate_and_redact_context(
+            context=payload.context,
+            policy_spec=effective_job.policy_spec,
+        )
+    except ContextValidationError as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    sanitized_payload = payload.model_copy(update={"context": context_result.sanitized_context})
+
+    engine = AssignmentEngine()
+    arms = repository.list_arms(workspace_id=payload.workspace_id, job_id=payload.job_id)
+    try:
+        return engine.assign(job=effective_job, request=sanitized_payload, arms=arms)
+    except AssignmentError as exc:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
 
 def _apply_active_policy_snapshot(*, job: Job, snapshot: PolicySnapshot) -> Job:
@@ -607,43 +655,16 @@ def create_app() -> FastAPI:
                 )
             return AssignResult.model_validate(cached_response)
 
-        job = repository.get_job(payload.job_id)
-        if job is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Job '{payload.job_id}' not found.",
-            )
-        if payload.workspace_id != job.workspace_id:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="workspace_id does not match the job workspace.",
-            )
-
-        active_snapshot = repository.get_active_snapshot(payload.workspace_id, payload.job_id)
-        effective_job = (
-            _apply_active_policy_snapshot(job=job, snapshot=active_snapshot)
-            if active_snapshot is not None
-            else job
+        effective_job = _resolve_effective_job(
+            repository=repository,
+            workspace_id=payload.workspace_id,
+            job_id=payload.job_id,
         )
-
-        try:
-            context_result = validate_and_redact_context(
-                context=payload.context,
-                policy_spec=effective_job.policy_spec,
-            )
-        except ContextValidationError as exc:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
-
-        sanitized_payload = payload.model_copy(
-            update={"context": context_result.sanitized_context}
+        decision = _evaluate_assignment(
+            repository=repository,
+            payload=payload,
+            effective_job=effective_job,
         )
-
-        engine = AssignmentEngine()
-        arms = repository.list_arms(workspace_id=payload.workspace_id, job_id=payload.job_id)
-        try:
-            decision = engine.assign(job=effective_job, request=sanitized_payload, arms=arms)
-        except AssignmentError as exc:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
         repository.create_decision(decision)
         repository.append(
@@ -688,6 +709,61 @@ def create_app() -> FastAPI:
             },
         )
         return decision
+
+    @app.post(
+        "/v1/assign:shadow",
+        dependencies=[Depends(require_api_token)],
+        response_model=ShadowAssignResult,
+    )
+    def assign_shadow(
+        payload: ShadowAssignRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> ShadowAssignResult:
+        effective_job = _resolve_effective_job(
+            repository=repository,
+            workspace_id=payload.workspace_id,
+            job_id=payload.job_id,
+        )
+        live_decision = _evaluate_assignment(
+            repository=repository,
+            payload=payload,
+            effective_job=effective_job,
+        )
+
+        snapshot = repository.get_snapshot(
+            workspace_id=payload.workspace_id,
+            job_id=payload.job_id,
+            snapshot_id=payload.shadow_snapshot_id,
+        )
+        if snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=(
+                    f"Shadow snapshot '{payload.shadow_snapshot_id}' "
+                    f"not found for job '{payload.job_id}'."
+                ),
+            )
+
+        shadow_job = _apply_active_policy_snapshot(job=effective_job, snapshot=snapshot)
+        shadow_decision = _evaluate_assignment(
+            repository=repository,
+            payload=payload,
+            effective_job=shadow_job,
+        )
+
+        repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=payload.job_id,
+            action="decision.shadow_evaluated",
+            metadata={
+                "idempotency_key": payload.idempotency_key,
+                "shadow_snapshot_id": snapshot.snapshot_id,
+                "live_arm_id": live_decision.arm_id,
+                "shadow_arm_id": shadow_decision.arm_id,
+            },
+        )
+
+        return ShadowAssignResult(live_decision=live_decision, shadow_decision=shadow_decision)
 
     @app.post(
         "/v1/exposures",

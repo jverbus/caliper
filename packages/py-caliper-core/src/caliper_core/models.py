@@ -223,6 +223,14 @@ class AssignResult(BaseModel):
     timestamp: datetime = Field(default_factory=utc_now)
 
 
+class ShadowAssignRequest(AssignRequest):
+    shadow_snapshot_id: str
+
+
+class ShadowAssignResult(BaseModel):
+    live_decision: AssignResult
+    shadow_decision: AssignResult
+
 
 class ExposureCreate(BaseModel):
     workspace_id: str
