@@ -196,3 +196,8 @@
 - Added duplicate-safe webhook handling keyed by `webhook_event_id` and metadata propagation for auditability/guardrail derivation (`packages/py-caliper-adapters/src/caliper_adapters/email.py`).
 - Added unit coverage for webhook metric mapping, delayed outcome timestamps, attribution-window config, and idempotent duplicate dropping (`tests/unit/test_email_adapter.py`).
 - Documented webhook/outcome ingest behavior and acceptance mapping (`docs/execution/EMAIL_WEBHOOK_OUTCOMES.md`).
+- CI for PR #35 passed and chunk **P7-002 Email webhook and outcome ingest** was merged (`5c76338`).
+- Started chunk **P7-003 Tranche reallocation**.
+- Added `EmailTranchePlanner` orchestration hooks for per-tranche active-arm refresh and sendability checks plus deterministic blocked planning errors when guardrails cap/pause (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
+- Added tranche reallocation unit coverage for per-tranche candidate refresh and blocked paused/no-active-arm flows (`tests/unit/test_email_adapter.py`).
+- Documented tranche reallocation loop and guardrail/policy-update integration pattern (`docs/execution/TRANCHE_REALLOCATION.md`).

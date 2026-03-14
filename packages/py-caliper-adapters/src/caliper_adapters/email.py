@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
@@ -90,6 +91,50 @@ class EmailWebhookEvent:
     occurred_at: datetime
     value: float = 1.0
     metadata: dict[str, str | int | float | bool] = field(default_factory=dict)
+
+
+class TranchePlanningBlockedError(RuntimeError):
+    """Raised when tranche planning is blocked (for example, paused by guardrails)."""
+
+
+class EmailTranchePlanner:
+    """Coordinates tranche-by-tranche planning with policy/guardrail-aware refresh hooks."""
+
+    def __init__(
+        self,
+        *,
+        adapter: EmailAdapter,
+        active_arm_supplier: Callable[[], list[str]],
+        can_send_supplier: Callable[[], bool],
+    ) -> None:
+        self._adapter = adapter
+        self._active_arm_supplier = active_arm_supplier
+        self._can_send_supplier = can_send_supplier
+
+    def plan_next_tranche(
+        self,
+        *,
+        tranche_id: str,
+        recipients: list[EmailRecipient],
+        idempotency_prefix: str,
+        campaign_context: dict[str, str | int | float | bool] | None = None,
+    ) -> EmailSendPlan:
+        if not self._can_send_supplier():
+            msg = "Job is not sendable (likely paused by guardrail action)"
+            raise TranchePlanningBlockedError(msg)
+
+        candidate_arms = self._active_arm_supplier()
+        if len(candidate_arms) == 0:
+            msg = "No active arms available for tranche planning"
+            raise TranchePlanningBlockedError(msg)
+
+        return self._adapter.build_send_plan(
+            tranche_id=tranche_id,
+            recipients=recipients,
+            idempotency_prefix=idempotency_prefix,
+            candidate_arms=candidate_arms,
+            campaign_context=campaign_context,
+        )
 
 
 class EmailAdapter:
