@@ -173,3 +173,8 @@
 - Added TypeScript SDK unit coverage for auth/header wiring and response parsing (`packages/ts-sdk/src/index.test.ts`) and enabled strict package test execution (`packages/ts-sdk/package.json`, `packages/ts-sdk/tsconfig.json`, `pnpm-lock.yaml`).
 - Added live API integration coverage that builds TS SDK, runs a real API process, and validates end-to-end job/arm/decision/exposure/outcome/report calls via Node (`tests/integration/test_ts_sdk_service.py`).
 - Documented TS SDK API surface and acceptance mapping (`docs/execution/TYPESCRIPT_SDK.md`).
+- CI for PR #31 passed and chunk **P6-001 TypeScript SDK** was merged (`d37d99e`).
+- Started chunk **P6-002 Web adapter**.
+- Added `WebAdapter` with request-time assignment helper plus explicit render exposure, click, and conversion logging helpers (`packages/py-caliper-adapters/src/caliper_adapters/web.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
+- Added unit coverage for candidate-arm subsets, rendered exposure behavior, and distinct click/conversion outcomes (`tests/unit/test_web_adapter.py`).
+- Documented web adapter API surface and acceptance mapping (`docs/execution/WEB_ADAPTER.md`).
