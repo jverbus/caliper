@@ -21,11 +21,39 @@ This repository contains the v1 implementation scaffold and core substrate, desi
 
 ```bash
 make setup
+make precommit-install
 make lint
 make typecheck
 make test
 make run-embedded
 ```
+
+## Local pre-commit guardrails
+
+Install hooks once per clone:
+
+```bash
+make precommit-install
+```
+
+Run hooks against staged changes:
+
+```bash
+make precommit-run
+```
+
+Run hooks against the entire repository:
+
+```bash
+make precommit-run-all
+```
+
+Hook policy:
+
+- `ruff check --fix` + `ruff format` on Python files
+- hygiene checks (YAML/JSON/merge-conflicts/whitespace)
+- gitleaks secret scan
+- pre-push checks for `mypy` and TypeScript typecheck
 
 ## Required commands
 

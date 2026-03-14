@@ -2,7 +2,8 @@ SHELL := /bin/bash
 PY := uv run
 
 .PHONY: setup lint format typecheck test test-unit test-integration test-property \
-	demo-workflow demo-web demo-email run-embedded run-service run-worker seed-demo-data
+	demo-workflow demo-web demo-email run-embedded run-service run-worker seed-demo-data \
+	precommit-install precommit-run precommit-run-all
 
 setup:
 	uv sync --group dev
@@ -14,6 +15,16 @@ lint:
 
 format:
 	$(PY) ruff format .
+
+precommit-install:
+	$(PY) pre-commit install --install-hooks
+	$(PY) pre-commit install --hook-type pre-push
+
+precommit-run:
+	$(PY) pre-commit run
+
+precommit-run-all:
+	$(PY) pre-commit run --all-files
 
 # Keep typecheck separate from lint for CI matrix flexibility.
 typecheck:
