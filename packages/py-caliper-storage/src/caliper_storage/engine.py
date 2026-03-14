@@ -1,10 +1,10 @@
 from __future__ import annotations
 
+from caliper_core.config import CaliperSettings
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from caliper_core.config import CaliperSettings
 from caliper_storage.sqlalchemy_models import Base
 
 
