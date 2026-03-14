@@ -3,6 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "description": "Caliper monorepo",
+  "packageManager": "pnpm@10.23.0",
   "scripts": {
     "build": "pnpm --filter @caliper/ts-sdk build",
     "lint": "pnpm --filter @caliper/ts-sdk lint",

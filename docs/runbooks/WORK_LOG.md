@@ -10,3 +10,4 @@
 - Added uv + pnpm workspace config (`pyproject.toml`, `uv.lock`, `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`) and Make targets for setup/lint/typecheck/test.
 - Added GitHub Actions CI workflow (`.github/workflows/ci.yml`) for quality, postgres smoke, and demo smoke jobs.
 - Added placeholder integration/property tests plus Postgres smoke test to keep CI green on scaffold state.
+- Fixed CI blocker after first PR run by pinning `packageManager` (`pnpm@10.23.0`) for `pnpm/action-setup@v4`.
