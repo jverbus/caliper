@@ -119,3 +119,4 @@
 - Added epsilon-greedy policy weight resolution in assignment engine with deterministic selection compatibility and policy-family dispatch (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
 - Added seeded simulation + propensity diagnostics coverage for epsilon-greedy behavior (`tests/unit/test_assignment_engine.py`).
 - Documented epsilon-greedy policy behavior and parameter contract (`docs/execution/EPSILON_GREEDY_POLICY.md`).
+- Fixed PR #21 CI lint blockers by wrapping long assignment-engine method signatures and tightening active-arm enum comparison in eligibility filtering (`packages/py-caliper-policies/src/caliper_policies/engine.py`, `734df95`).
