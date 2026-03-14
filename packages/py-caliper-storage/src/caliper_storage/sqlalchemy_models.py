@@ -61,6 +61,30 @@ class DecisionRow(Base):
     timestamp: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
 
 
+class IdempotencyKeyRow(Base):
+    __tablename__ = "idempotency_keys"
+
+    idempotency_record_id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True
+    )
+    workspace_id: Mapped[str] = mapped_column(String(128), index=True)
+    endpoint: Mapped[str] = mapped_column(String(128), index=True)
+    idempotency_key: Mapped[str] = mapped_column(String(255))
+    request_hash: Mapped[str] = mapped_column(String(64))
+    response_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+    __table_args__ = (
+        Index(
+            "idx_idempotency_scope_key",
+            "workspace_id",
+            "endpoint",
+            "idempotency_key",
+            unique=True,
+        ),
+    )
+
+
 class ExposureRow(Base):
     __tablename__ = "exposures"
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import hashlib
+import json
 from typing import Annotated
 
 from api.dependencies import (
@@ -9,6 +11,7 @@ from api.dependencies import (
     readiness_check,
     require_api_token,
 )
+from caliper_core.events import EventEnvelope
 from caliper_core.models import (
     ApprovalState,
     Arm,
@@ -17,6 +20,8 @@ from caliper_core.models import (
     ArmLifecycleAction,
     ArmLifecycleRequest,
     ArmState,
+    AssignRequest,
+    AssignResult,
     AuditRecord,
     Job,
     JobCreate,
@@ -25,6 +30,7 @@ from caliper_core.models import (
     JobStateTransitionRequest,
     JobStatus,
 )
+from caliper_policies.engine import AssignmentEngine, AssignmentError
 from caliper_storage import SQLRepository
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Engine
@@ -89,6 +95,11 @@ def _transition_job_state(
         },
     )
     return updated
+
+
+def _assign_request_hash(payload: AssignRequest) -> str:
+    encoded = json.dumps(payload.model_dump(mode="json"), sort_keys=True).encode()
+    return hashlib.sha256(encoded).hexdigest()
 
 
 def create_app() -> FastAPI:
@@ -319,6 +330,96 @@ def create_app() -> FastAPI:
                 detail="workspace_id does not match the job workspace.",
             )
         return repository.list_arms(workspace_id=workspace_id, job_id=job_id)
+
+    @app.post(
+        "/v1/assign",
+        dependencies=[Depends(require_api_token)],
+        response_model=AssignResult,
+    )
+    def assign(
+        payload: AssignRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> AssignResult:
+        endpoint = "/v1/assign"
+        request_hash = _assign_request_hash(payload)
+        cached = repository.get_idempotent_response(
+            workspace_id=payload.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=payload.idempotency_key,
+        )
+        if cached is not None:
+            cached_hash, cached_response = cached
+            if cached_hash != request_hash:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "Idempotency key already used with a different request payload."
+                    ),
+                )
+            return AssignResult.model_validate(cached_response)
+
+        job = repository.get_job(payload.job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{payload.job_id}' not found.",
+            )
+        if payload.workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        engine = AssignmentEngine()
+        arms = repository.list_arms(workspace_id=payload.workspace_id, job_id=payload.job_id)
+        try:
+            decision = engine.assign(job=job, request=payload, arms=arms)
+        except AssignmentError as exc:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+
+        repository.create_decision(decision)
+        repository.append(
+            EventEnvelope(
+                workspace_id=decision.workspace_id,
+                job_id=decision.job_id,
+                event_type="decision.assigned",
+                entity_id=decision.decision_id,
+                idempotency_key=payload.idempotency_key,
+                payload={
+                    "decision_id": decision.decision_id,
+                    "workspace_id": decision.workspace_id,
+                    "job_id": decision.job_id,
+                    "unit_id": decision.unit_id,
+                    "candidate_arms": decision.candidate_arms,
+                    "chosen_arm": decision.arm_id,
+                    "propensity": decision.propensity,
+                    "policy_family": decision.policy_family.value,
+                    "policy_version": decision.policy_version,
+                    "context_schema_version": decision.context_schema_version,
+                    "context": decision.context,
+                    "diagnostics": decision.diagnostics.model_dump(mode="json"),
+                    "timestamp": decision.timestamp.isoformat(),
+                },
+            )
+        )
+        repository.save_idempotent_response(
+            workspace_id=payload.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=payload.idempotency_key,
+            request_hash=request_hash,
+            response=decision.model_dump(mode="json"),
+        )
+        repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=payload.job_id,
+            action="decision.assigned",
+            metadata={
+                "decision_id": decision.decision_id,
+                "arm_id": decision.arm_id,
+                "idempotency_key": payload.idempotency_key,
+            },
+        )
+        return decision
 
     @app.post(
         "/v1/jobs/{job_id}/arms/{arm_id}:lifecycle",

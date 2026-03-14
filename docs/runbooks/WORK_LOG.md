@@ -82,3 +82,8 @@
 - Implemented assignment engine with deterministic weighted fixed-split selection and eligibility filtering (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
 - Added unit coverage for candidate subsets, weighted split behavior, and equal-weight fallback (`tests/unit/test_assignment_engine.py`).
 - Documented assignment engine/fixed-split behavior (`docs/execution/ASSIGNMENT_ENGINE.md`).
+- Started chunk **P3-002 Assign endpoint and idempotency**.
+- Added `POST /v1/assign` with deterministic fixed-split assignment wiring, API validation, and `decision.assigned` event persistence (`apps/api/main.py`).
+- Added database-backed request idempotency persistence (`idempotency_keys`) with request-hash conflict protection and cached response replay (`packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added integration coverage for retry stability, candidate-arm subset enforcement, conflicting idempotency-key reuse, and persisted assignment event/decision records (`tests/integration/test_api_assign.py`).
+- Documented assign endpoint and idempotency behavior (`docs/execution/ASSIGN_ENDPOINT.md`).
