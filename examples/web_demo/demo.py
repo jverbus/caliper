@@ -122,7 +122,7 @@ def run_demo(*, mode: str, db_url: str, api_url: str, api_token: str | None) -> 
     adapter = WebAdapter(client=client, workspace_id=workspace_id, job_id=job_id)
     chosen_counts: dict[str, int] = {"landing-a": 0, "landing-b": 0}
 
-    requests: list[dict[str, str]] = [
+    requests: list[dict[str, str | int | float | bool]] = [
         {"country": "US", "device": "mobile"},
         {"country": "US", "device": "desktop"},
         {"country": "CA", "device": "mobile"},

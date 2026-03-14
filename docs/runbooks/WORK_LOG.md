@@ -184,3 +184,4 @@
 - Added checked-in web demo report fixtures for embedded and service runs (`docs/fixtures/web_demo/embedded/*`, `docs/fixtures/web_demo/service/*`).
 - Added dedicated web demo execution doc with run instructions and acceptance mapping (`docs/execution/WEB_DEMO.md`).
 - Added integration coverage validating web demo success in both embedded and service mode, including segment findings in generated reports (`tests/integration/test_web_demo.py`).
+- Addressed PR #33 CI typecheck blocker by widening web demo request context typing to match adapter contract (`examples/web_demo/demo.py`).
