@@ -9,6 +9,7 @@ from caliper_core.models import (
     ArmType,
     AssignRequest,
     ExposureCreate,
+    GuardrailSpec,
     Job,
     ObjectiveSpec,
     OutcomeCreate,
@@ -143,7 +144,7 @@ def _job() -> Job:
         name="Demo",
         surface_type=SurfaceType.WEB,
         objective_spec=ObjectiveSpec(reward_formula="signup"),
-        guardrail_spec={"rules": []},
+        guardrail_spec=GuardrailSpec(rules=[]),
         policy_spec=PolicySpec(
             policy_family=PolicyFamily.FIXED_SPLIT, params={"weights": {"arm-a": 1.0}}
         ),

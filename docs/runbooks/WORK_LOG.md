@@ -152,3 +152,4 @@
 - Implemented service + embedded Python SDK clients covering create/get/update job, arm registration, assign, exposure/outcome logging, and report generation (`packages/py-sdk/src/caliper_sdk/client.py`, `packages/py-sdk/src/caliper_sdk/__init__.py`).
 - Added unit coverage for both service-mode and embedded-mode SDK workflows (`tests/unit/test_python_sdk.py`).
 - Documented SDK behavior and usage examples (`docs/execution/PYTHON_SDK.md`).
+- Fixed PR #27 CI typecheck blockers by tightening `ServiceCaliperClient._request` return typing and updating SDK unit fixtures to use typed `GuardrailSpec` (`packages/py-sdk/src/caliper_sdk/client.py`, `tests/unit/test_python_sdk.py`).

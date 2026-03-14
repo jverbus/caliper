@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, cast
 
 import httpx
 from caliper_core.events import EventEnvelope
@@ -43,7 +43,9 @@ class ServiceCaliperClient:
         if api_token:
             self._headers["Authorization"] = f"Bearer {api_token}"
 
-    def _request(self, *, method: str, path: str, payload: dict[str, Any] | None = None) -> Any:
+    def _request(
+        self, *, method: str, path: str, payload: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         with httpx.Client(
             base_url=self._api_url,
             timeout=self._timeout_seconds,
@@ -51,7 +53,7 @@ class ServiceCaliperClient:
         ) as client:
             response = client.request(method, path, json=payload)
         response.raise_for_status()
-        return response.json()
+        return cast(dict[str, Any], response.json())
 
     def create_job(self, payload: Job) -> dict[str, Any]:
         return self._request(
