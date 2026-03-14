@@ -66,4 +66,5 @@ mypy_path = [
   "packages/py-caliper-storage/src",
   "packages/py-caliper-events/src",
   "packages/py-sdk/src",
+  "apps",
 ]
