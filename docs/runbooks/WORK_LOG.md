@@ -228,3 +228,10 @@
 - Updated README quickstart to include seeding and point operators to packaging/install runbook (`README.md`).
 - Investigated PR #40 CI failure in `quality` job `make typecheck`; added explicit pytest fixture/helper typing in seed-data unit tests to satisfy strict mypy (`tests/unit/test_seed_demo_data.py`, `5d023f8`).
 - Pushed fix to `chunk/p8-003-packaging-install-flow`; PR #40 checks rerunning.
+- CI for PR #40 passed and chunk **P8-003 Packaging and install flow** was merged (`f5a8cc2`).
+- Started chunk **P8-004 Backup and restore runbook verification**.
+- Added backup/restore utility CLI with tar.gz export + safe restore path validation and manifest capture (`scripts/backup_restore.py`).
+- Added operator make targets for local backup/restore flows (`Makefile`).
+- Added backup/restore roundtrip unit smoke coverage (`tests/unit/test_backup_restore.py`).
+- Added backup/restore runbook walkthrough and acceptance mapping (`docs/execution/BACKUP_RESTORE_RUNBOOK.md`).
+- Updated README runbook + required-command references for backup/restore flows (`README.md`).
