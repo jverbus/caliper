@@ -29,9 +29,10 @@ make run-embedded
 make seed-demo-data
 ```
 
-For a full machine setup and service compose workflow, use:
+For full machine setup + hardening runbooks, use:
 
 - `docs/execution/PACKAGING_INSTALL_FLOW.md`
+- `docs/execution/BACKUP_RESTORE_RUNBOOK.md`
 
 ## Local pre-commit guardrails
 
@@ -79,6 +80,8 @@ The command surface is intentionally stable for automation:
 - `make run-service`
 - `make run-worker`
 - `make seed-demo-data`
+- `make backup-local`
+- `make restore-local`
 
 ## Profiles
 

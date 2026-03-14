@@ -4,7 +4,7 @@ PYTHONPATH := packages/py-caliper-core/src:packages/py-caliper-storage/src:packa
 
 .PHONY: setup lint format typecheck test test-unit test-integration test-property \
 	demo-workflow demo-web demo-email run-embedded run-service run-worker seed-demo-data \
-	precommit-install precommit-run precommit-run-all
+	backup-local restore-local precommit-install precommit-run precommit-run-all
 
 setup:
 	uv sync --group dev
@@ -64,3 +64,9 @@ run-worker:
 
 seed-demo-data:
 	PYTHONPATH=$(PYTHONPATH) $(PY) python scripts/seed_demo_data.py
+
+backup-local:
+	$(PY) python scripts/backup_restore.py backup --repo-root . --data-dir data --reports-dir reports
+
+restore-local:
+	$(PY) python scripts/backup_restore.py restore --archive-file exports/caliper-backup-test.tar.gz --target-root /tmp/caliper-restore-check
