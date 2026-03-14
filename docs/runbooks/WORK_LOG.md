@@ -167,3 +167,9 @@
 - Added integration coverage validating workflow demo success in both embedded and service mode (`tests/integration/test_workflow_demo.py`).
 - Updated Makefile runtime/demo targets to export workspace `PYTHONPATH` so demo/service entrypoints run directly (`Makefile`).
 - Fixed PR #29 CI blockers by ensuring workflow demo bootstraps SQLite directories/reset behavior for repeatable runs and by tightening workflow demo typing annotations (`examples/workflow_demo/demo.py`, `tests/integration/test_workflow_demo.py`).
+- CI for PR #29 passed and chunk **P5-004 Workflow demo and docs** was merged (`ed008a7`).
+- Started chunk **P6-001 TypeScript SDK**.
+- Expanded `@caliper/ts-sdk` from health-only scaffold to a service client covering job CRUD, arm registration, assignment, exposure/outcome ingest, and report generation/latest retrieval (`packages/ts-sdk/src/index.ts`).
+- Added TypeScript SDK unit coverage for auth/header wiring and response parsing (`packages/ts-sdk/src/index.test.ts`) and enabled strict package test execution (`packages/ts-sdk/package.json`, `packages/ts-sdk/tsconfig.json`, `pnpm-lock.yaml`).
+- Added live API integration coverage that builds TS SDK, runs a real API process, and validates end-to-end job/arm/decision/exposure/outcome/report calls via Node (`tests/integration/test_ts_sdk_service.py`).
+- Documented TS SDK API surface and acceptance mapping (`docs/execution/TYPESCRIPT_SDK.md`).
