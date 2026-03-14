@@ -259,3 +259,4 @@
 - Added contextual promotion gate scaffold with a non-live gate check endpoint and activation/promotion guardrails that block contextual runtime snapshots until required checks pass (`apps/api/main.py`).
 - Added integration coverage for contextual gate blocked/pass flows, including required shadow-evaluation evidence prior to contextual activation (`tests/integration/test_api_policy_snapshots.py`).
 - Documented contextual promotion gate behavior, gate contract, and acceptance mapping (`docs/execution/CONTEXTUAL_PROMOTION_GATE_SCAFFOLD.md`).
+- CI for PR #45 passed and chunk **P9-004 Contextual promotion gate scaffold** was merged (`3d3184d`).
