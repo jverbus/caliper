@@ -235,3 +235,8 @@
 - Added backup/restore roundtrip unit smoke coverage (`tests/unit/test_backup_restore.py`).
 - Added backup/restore runbook walkthrough and acceptance mapping (`docs/execution/BACKUP_RESTORE_RUNBOOK.md`).
 - Updated README runbook + required-command references for backup/restore flows (`README.md`).
+- CI for PR #41 passed and chunk **P8-004 Backup and restore runbook verification** was merged (`58e32aa`).
+- Started chunk **P9-001 Context schema versioning**.
+- Added assignment-time context validation/redaction hooks keyed by `context_schema_version` (`packages/py-caliper-core/src/caliper_core/context.py`, `apps/api/main.py`).
+- Added integration coverage for required/disallowed context field validation and redaction persistence policy (`tests/integration/test_api_assign.py`).
+- Documented context schema contract and context storage policy (`docs/execution/CONTEXT_SCHEMA_VERSIONING.md`).

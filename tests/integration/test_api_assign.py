@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from uuid import uuid4
+
 import pytest
 from api import dependencies
 from api.main import create_app
@@ -13,9 +15,18 @@ def _reset_dependency_caches() -> None:
     dependencies._cached_session_factory.cache_clear()
 
 
-def _job_payload() -> dict[str, object]:
+def _job_payload(
+    *,
+    workspace_id: str,
+    context_schema_version: str | None = None,
+    context_schemas: dict[str, object] | None = None,
+) -> dict[str, object]:
+    params: dict[str, object] = {"weights": {"arm-a": 0.8, "arm-b": 0.2}}
+    if context_schemas is not None:
+        params["context_schemas"] = context_schemas
+
     return {
-        "workspace_id": "ws-demo",
+        "workspace_id": workspace_id,
         "name": "Assign job",
         "surface_type": "web",
         "objective_spec": {
@@ -35,20 +46,20 @@ def _job_payload() -> dict[str, object]:
         },
         "policy_spec": {
             "policy_family": "fixed_split",
-            "params": {"weights": {"arm-a": 0.8, "arm-b": 0.2}},
+            "params": params,
             "update_cadence": {"mode": "periodic", "seconds": 300},
-            "context_schema_version": None,
+            "context_schema_version": context_schema_version,
         },
         "segment_spec": {"dimensions": ["country"]},
         "schedule_spec": {"report_cron": "0 7 * * *"},
     }
 
 
-def _register_arms(client: TestClient, job_id: str) -> None:
+def _register_arms(client: TestClient, workspace_id: str, job_id: str) -> None:
     register_resp = client.post(
         f"/v1/jobs/{job_id}/arms:batch_register",
         json={
-            "workspace_id": "ws-demo",
+            "workspace_id": workspace_id,
             "arms": [
                 {
                     "arm_id": "arm-a",
@@ -77,12 +88,13 @@ def test_assign_is_idempotent_and_persists_decision_event(
     _reset_dependency_caches()
     client = TestClient(create_app())
 
-    created = client.post("/v1/jobs", json=_job_payload()).json()
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post("/v1/jobs", json=_job_payload(workspace_id=workspace_id)).json()
     job_id = created["job_id"]
-    _register_arms(client, job_id)
+    _register_arms(client, workspace_id, job_id)
 
     payload = {
-        "workspace_id": "ws-demo",
+        "workspace_id": workspace_id,
         "job_id": job_id,
         "unit_id": "visitor-1",
         "candidate_arms": ["arm-a"],
@@ -104,7 +116,7 @@ def test_assign_is_idempotent_and_persists_decision_event(
     assert decision is not None
     assert decision.arm_id == "arm-a"
 
-    events = repository.replay(workspace_id="ws-demo", job_id=job_id)
+    events = repository.replay(workspace_id=workspace_id, job_id=job_id)
     assigned = [event for event in events if event.event_type == "decision.assigned"]
     assert len(assigned) == 1
     assert assigned[0].entity_id == first_body["decision_id"]
@@ -117,14 +129,15 @@ def test_assign_rejects_reused_idempotency_key_with_different_payload(
     _reset_dependency_caches()
     client = TestClient(create_app())
 
-    created = client.post("/v1/jobs", json=_job_payload()).json()
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post("/v1/jobs", json=_job_payload(workspace_id=workspace_id)).json()
     job_id = created["job_id"]
-    _register_arms(client, job_id)
+    _register_arms(client, workspace_id, job_id)
 
     first = client.post(
         "/v1/assign",
         json={
-            "workspace_id": "ws-demo",
+            "workspace_id": workspace_id,
             "job_id": job_id,
             "unit_id": "visitor-1",
             "candidate_arms": ["arm-a"],
@@ -137,7 +150,7 @@ def test_assign_rejects_reused_idempotency_key_with_different_payload(
     conflict = client.post(
         "/v1/assign",
         json={
-            "workspace_id": "ws-demo",
+            "workspace_id": workspace_id,
             "job_id": job_id,
             "unit_id": "visitor-2",
             "candidate_arms": ["arm-b"],
@@ -153,14 +166,15 @@ def test_assign_candidate_subset_is_respected(monkeypatch: pytest.MonkeyPatch) -
     _reset_dependency_caches()
     client = TestClient(create_app())
 
-    created = client.post("/v1/jobs", json=_job_payload()).json()
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post("/v1/jobs", json=_job_payload(workspace_id=workspace_id)).json()
     job_id = created["job_id"]
-    _register_arms(client, job_id)
+    _register_arms(client, workspace_id, job_id)
 
     response = client.post(
         "/v1/assign",
         json={
-            "workspace_id": "ws-demo",
+            "workspace_id": workspace_id,
             "job_id": job_id,
             "unit_id": "visitor-subset",
             "candidate_arms": ["arm-b"],
@@ -170,3 +184,102 @@ def test_assign_candidate_subset_is_respected(monkeypatch: pytest.MonkeyPatch) -
     )
     assert response.status_code == 200
     assert response.json()["arm_id"] == "arm-b"
+
+
+def test_assign_context_schema_rejects_missing_and_disallowed_fields(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post(
+        "/v1/jobs",
+        json=_job_payload(
+            workspace_id=workspace_id,
+            context_schema_version="v1",
+            context_schemas={
+                "v1": {
+                    "required_fields": ["country"],
+                    "allowed_fields": ["country", "device_type", "email"],
+                    "redact_fields": ["email"],
+                }
+            },
+        ),
+    ).json()
+    job_id = created["job_id"]
+    _register_arms(client, workspace_id, job_id)
+
+    missing = client.post(
+        "/v1/assign",
+        json={
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "unit_id": "visitor-missing",
+            "candidate_arms": ["arm-a"],
+            "context": {"device_type": "mobile"},
+            "idempotency_key": "req-missing-context",
+        },
+    )
+    assert missing.status_code == 400
+    assert "missing required" in missing.json()["detail"]
+
+    disallowed = client.post(
+        "/v1/assign",
+        json={
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "unit_id": "visitor-disallowed",
+            "candidate_arms": ["arm-a"],
+            "context": {"country": "US", "unknown_field": True},
+            "idempotency_key": "req-disallowed-context",
+        },
+    )
+    assert disallowed.status_code == 400
+    assert "disallowed" in disallowed.json()["detail"]
+
+
+def test_assign_context_schema_applies_redaction_before_persistence(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    workspace_id = f"ws-{uuid4().hex[:8]}"
+    created = client.post(
+        "/v1/jobs",
+        json=_job_payload(
+            workspace_id=workspace_id,
+            context_schema_version="v1",
+            context_schemas={
+                "v1": {
+                    "required_fields": ["country"],
+                    "allowed_fields": ["country", "email"],
+                    "redact_fields": ["email"],
+                }
+            },
+        ),
+    ).json()
+    job_id = created["job_id"]
+    _register_arms(client, workspace_id, job_id)
+
+    response = client.post(
+        "/v1/assign",
+        json={
+            "workspace_id": workspace_id,
+            "job_id": job_id,
+            "unit_id": "visitor-redaction",
+            "candidate_arms": ["arm-a"],
+            "context": {"country": "US", "email": "person@example.com"},
+            "idempotency_key": "req-redaction",
+        },
+    )
+    assert response.status_code == 200
+    assert response.json()["context"] == {"country": "US", "email": "[REDACTED]"}
+
+    repository = SQLRepository(dependencies.get_session_factory())
+    decision = repository.get_decision(response.json()["decision_id"])
+    assert decision is not None
+    assert decision.context == {"country": "US", "email": "[REDACTED]"}
