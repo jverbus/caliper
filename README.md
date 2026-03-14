@@ -55,4 +55,10 @@ Caliper uses profile-driven config:
 - `service`: Postgres + API + worker
 - `shared`: service profile + auth/workspace scoping
 
-Set `CALIPER_PROFILE` and related env vars to switch mode.
+Use the deployment examples in `deploy/env/`:
+
+- `deploy/env/.env.embedded.example`
+- `deploy/env/.env.service.example`
+- `deploy/env/.env.shared.example`
+
+Set `CALIPER_PROFILE` and related env vars to switch mode. Shared mode enables auth by default and supports `CALIPER_SHARED_API_TOKEN` for basic secret-backed API access.

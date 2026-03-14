@@ -15,3 +15,8 @@
 - Started chunk **P0-003 ADR and governance scaffolding**.
 - Added ADR directory and template (`docs/adr/README.md`, `docs/adr/ADR-TEMPLATE.md`).
 - Added pull request template (`.github/pull_request_template.md`) and work log template (`docs/runbooks/WORK_LOG_TEMPLATE.md`).
+- PR #3 for P0-003 merged (`745185d`).
+- Started chunk **P0-004 Config system and profiles**.
+- Expanded profile-aware settings with explicit embedded/service/shared behavior and default backend resolution (`packages/py-caliper-core/src/caliper_core/config.py`).
+- Added deployable env examples for each profile (`deploy/env/.env.*.example`) including shared-mode token setting.
+- Added config profile tests for backend resolution/auth defaults/runtime dir creation (`tests/unit/test_config_profiles.py`).
