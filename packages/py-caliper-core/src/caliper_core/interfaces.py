@@ -17,6 +17,7 @@ from caliper_core.models import (
     JobStatus,
     OutcomeCreate,
     PolicySnapshot,
+    ReportPayload,
 )
 
 
@@ -119,3 +120,10 @@ class EventLedger(Protocol):
 @runtime_checkable
 class EventBus(Protocol):
     def publish(self, event: EventEnvelope) -> None: ...
+
+
+@runtime_checkable
+class ReportRepository(Protocol):
+    def save_report(self, report: ReportPayload) -> ReportPayload: ...
+
+    def get_latest_report(self, *, workspace_id: str, job_id: str) -> ReportPayload | None: ...

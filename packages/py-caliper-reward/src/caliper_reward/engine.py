@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from math import isfinite
 
 from caliper_core.models import AssignResult, ObjectiveSpec, OutcomeCreate
@@ -142,8 +142,17 @@ class RewardEngine:
         ]
 
     def _outcome_in_window(self, *, decision: AssignResult, outcome: OutcomeCreate) -> bool:
-        window_end = decision.timestamp + timedelta(hours=outcome.attribution_window.hours)
-        return any(decision.timestamp <= event.timestamp <= window_end for event in outcome.events)
+        decision_timestamp = self._as_aware_utc(decision.timestamp)
+        window_end = decision_timestamp + timedelta(hours=outcome.attribution_window.hours)
+        return any(
+            decision_timestamp <= self._as_aware_utc(event.timestamp) <= window_end
+            for event in outcome.events
+        )
+
+    def _as_aware_utc(self, value: datetime) -> datetime:
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value.astimezone(UTC)
 
     def _collect_metrics(self, outcome: OutcomeCreate) -> dict[str, float]:
         metrics: dict[str, float] = {}

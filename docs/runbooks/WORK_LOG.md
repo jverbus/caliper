@@ -102,3 +102,8 @@
 - Added deterministic reward evaluation + normalized policy-update dataset builder (`packages/py-caliper-reward/src/caliper_reward/engine.py`, `packages/py-caliper-reward/src/caliper_reward/__init__.py`).
 - Added unit fixtures for reproducible reward values, penalty/cost impact, and attribution-window filtering (`tests/unit/test_reward_engine.py`).
 - Documented reward engine behavior and acceptance mapping (`docs/execution/REWARD_ENGINE.md`).
+- Started chunk **P3-006 Report generation**.
+- Added report generation domain contract and storage persistence for report runs (`packages/py-caliper-core/src/caliper_core/models.py`, `packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Implemented deterministic JSON + Markdown + HTML report generation with leaders, traffic shifts, guardrails, segment findings, and recommendations (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
+- Added report generation and latest report retrieval API endpoints (`apps/api/main.py`).
+- Added integration coverage for report generation/retrieval and documented report behavior (`tests/integration/test_api_reports.py`, `docs/execution/REPORT_GENERATION.md`).

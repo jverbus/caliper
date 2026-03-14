@@ -273,3 +273,41 @@ class PolicySnapshot(BaseModel):
     policy_version: str
     payload: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
+
+
+class ReportGenerateRequest(BaseModel):
+    workspace_id: str
+
+
+class ReportSummary(BaseModel):
+    arm_id: str
+    assignments: int = 0
+    exposures: int = 0
+    outcomes: int = 0
+    avg_reward: float = 0.0
+    assignment_share: float = 0.0
+
+
+class SegmentFinding(BaseModel):
+    segment: str
+    leader_arm_id: str | None = None
+    observations: int = 0
+
+
+class Recommendation(BaseModel):
+    title: str
+    detail: str
+
+
+class ReportPayload(BaseModel):
+    report_id: str = Field(default_factory=lambda: new_id("rpt"))
+    workspace_id: str
+    job_id: str
+    generated_at: datetime = Field(default_factory=utc_now)
+    leaders: list[ReportSummary] = Field(default_factory=list)
+    traffic_shifts: list[str] = Field(default_factory=list)
+    guardrails: list[dict[str, Any]] = Field(default_factory=list)
+    segment_findings: list[SegmentFinding] = Field(default_factory=list)
+    recommendations: list[Recommendation] = Field(default_factory=list)
+    markdown: str
+    html: str
