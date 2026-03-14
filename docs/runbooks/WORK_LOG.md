@@ -136,3 +136,8 @@
 - Updated assignment resolution to enforce active-snapshot-only policy versioning during `POST /v1/assign` (`apps/api/main.py`, `packages/py-caliper-policies/src/caliper_policies/engine.py`).
 - Added integration coverage for snapshot activation + rollback assignment behavior (`tests/integration/test_api_policy_snapshots.py`).
 - Documented policy snapshot behavior and API surface (`docs/execution/POLICY_SNAPSHOT_VERSIONING.md`).
+- CI for PR #24 passed and chunk **P4-004 Policy snapshot versioning** was merged (`827d06a`).
+- Started chunk **P4-005 Guardrail engine and auto actions**.
+- Added worker-integrated guardrail evaluation and auto-actions (annotate/cap/demote/pause/manual-resume) with persisted breach events + audit entries (`apps/worker/loop.py`, `packages/py-caliper-reward/src/caliper_reward/guardrails.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added unit/integration coverage for breach detection, target-arm selection, and pause-action execution in scheduler flows (`tests/unit/test_guardrail_engine.py`, `tests/integration/test_worker_scheduler.py`).
+- Documented guardrail engine behavior and acceptance mapping (`docs/execution/GUARDRAIL_ENGINE.md`).

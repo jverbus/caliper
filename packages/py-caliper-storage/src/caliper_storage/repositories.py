@@ -12,6 +12,7 @@ from caliper_core.interfaces import (
     DecisionRepository,
     EventLedger,
     ExposureRepository,
+    GuardrailEventRepository,
     JobRepository,
     OutcomeRepository,
     ReportRepository,
@@ -23,6 +24,7 @@ from caliper_core.models import (
     AssignResult,
     AuditRecord,
     ExposureCreate,
+    GuardrailEvent,
     Job,
     JobPatch,
     JobStatus,
@@ -58,6 +60,7 @@ class SQLRepository(
     DecisionRepository,
     ExposureRepository,
     OutcomeRepository,
+    GuardrailEventRepository,
     EventLedger,
     AuditRepository,
     ReportRepository,
@@ -375,6 +378,22 @@ class SQLRepository(
         with self._session() as session:
             rows = session.scalars(statement).all()
             return [self._row_to_outcome(row) for row in rows]
+
+    def create_guardrail_event(self, event: GuardrailEvent) -> GuardrailEvent:
+        with self._session() as session:
+            session.add(
+                GuardrailEventRow(
+                    guardrail_event_id=event.guardrail_event_id,
+                    workspace_id=event.workspace_id,
+                    job_id=event.job_id,
+                    metric=event.metric,
+                    status=event.status,
+                    action=event.action.value if event.action is not None else None,
+                    timestamp=event.timestamp,
+                    metadata_json=event.metadata,
+                )
+            )
+        return event
 
     def list_guardrail_events(self, workspace_id: str, job_id: str) -> list[dict[str, object]]:
         statement = (
