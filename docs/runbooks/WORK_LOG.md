@@ -57,3 +57,9 @@
 - Added reusable API dependency wiring for settings, engine/session factory bootstrap, repository construction, and shared-mode bearer auth scaffold (`apps/api/dependencies.py`).
 - Added integration coverage for health/readiness behavior and shared-profile auth enforcement (`tests/integration/test_api_app_skeleton.py`).
 - Documented endpoint/dependency/auth behavior in `docs/execution/API_APP_SKELETON.md`.
+- CI for PR #10 passed and chunk **P2-001 API app skeleton** was merged (`a8b8c49`).
+- Started chunk **P2-002 Job CRUD**.
+- Added `/v1/jobs` create/get/update API handlers with repository wiring and shared-mode auth enforcement (`apps/api/main.py`).
+- Extended SQL repository with `append_audit` support and wired job write endpoints to emit `job.create`/`job.update` audit records (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added integration coverage for job CRUD contract behavior, write-audit persistence, and missing-job 404 handling (`tests/integration/test_api_job_crud.py`).
+- Documented Job CRUD endpoint and audit behavior in `docs/execution/JOB_CRUD.md`.
