@@ -206,3 +206,5 @@
 - Replaced email demo scaffold with embedded/service end-to-end tranche simulation including delivery dispatch, delayed webhook outcomes, and worker-driven guardrail evaluation between tranches (`examples/email_demo/demo.py`).
 - Added integration coverage for embedded + service email demo flows validating guardrail behavior and tranche reallocation (`tests/integration/test_email_demo.py`).
 - Added email demo execution doc + acceptance mapping and generated demo report fixtures for embedded/service (`docs/execution/EMAIL_DEMO.md`, `docs/fixtures/email_demo/embedded/*`, `docs/fixtures/email_demo/service/*`).
+- Investigated PR #37 CI failure in `test_email_demo_service_mode`; made unsubscribe webhook generation deterministic for `subject-b` in demo outcomes to ensure guardrail cap behavior is stable across embedded/service runs (`examples/email_demo/demo.py`, `6803735`).
+- Pushed fix to `chunk/p7-004-email-demo`; PR #37 checks rerunning.
