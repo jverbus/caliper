@@ -130,3 +130,9 @@
 - Added Thompson Sampling policy-family routing with deterministic Beta posterior sampling and normalized propensity diagnostics (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
 - Added seeded simulation and diagnostics unit coverage for Thompson Sampling behavior (`tests/unit/test_assignment_engine.py`).
 - Documented Thompson Sampling policy behavior and parameter contract (`docs/execution/THOMPSON_SAMPLING_POLICY.md`).
+- Started chunk **P4-004 Policy snapshot versioning**.
+- Added immutable policy snapshot APIs for create/list/activate/rollback with `policy.updated` event emission and audit records (`apps/api/main.py`).
+- Extended snapshot persistence with active-state tracking (`is_active`, `activated_at`) plus repository activation/list helpers and migration backfill support (`packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-storage/src/caliper_storage/migrations.py`).
+- Updated assignment resolution to enforce active-snapshot-only policy versioning during `POST /v1/assign` (`apps/api/main.py`, `packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added integration coverage for snapshot activation + rollback assignment behavior (`tests/integration/test_api_policy_snapshots.py`).
+- Documented policy snapshot behavior and API surface (`docs/execution/POLICY_SNAPSHOT_VERSIONING.md`).

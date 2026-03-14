@@ -5,7 +5,7 @@ from sqlalchemy.engine import Engine
 
 from caliper_storage.sqlalchemy_models import Base
 
-MIGRATION_VERSION = "p1_003"
+MIGRATION_VERSION = "p4_004"
 
 
 def upgrade(engine: Engine) -> None:
@@ -17,6 +17,7 @@ def upgrade(engine: Engine) -> None:
 
     Base.metadata.create_all(bind=engine)
     _ensure_jobs_columns(engine)
+    _ensure_policy_snapshot_columns(engine)
     _ensure_migration_table(engine)
     _stamp_version(engine)
 
@@ -36,6 +37,26 @@ def _ensure_jobs_columns(engine: Engine) -> None:
                 )
             )
 
+
+
+def _ensure_policy_snapshot_columns(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "policy_snapshots" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("policy_snapshots")}
+    with engine.begin() as connection:
+        if "is_active" not in columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE policy_snapshots ADD COLUMN is_active "
+                    "BOOLEAN NOT NULL DEFAULT FALSE"
+                )
+            )
+        if "activated_at" not in columns:
+            connection.execute(
+                text("ALTER TABLE policy_snapshots ADD COLUMN activated_at TIMESTAMPTZ NULL")
+            )
 
 def _ensure_migration_table(engine: Engine) -> None:
     inspector = inspect(engine)

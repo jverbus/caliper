@@ -27,6 +27,7 @@ from caliper_core.models import (
     JobPatch,
     JobStatus,
     OutcomeCreate,
+    PolicySnapshot,
     ReportPayload,
 )
 from sqlalchemy import delete, select
@@ -42,6 +43,7 @@ from caliper_storage.sqlalchemy_models import (
     IdempotencyKeyRow,
     JobRow,
     OutcomeRow,
+    PolicySnapshotRow,
     ProjectionMetricRow,
     ProjectionRebuildAuditRow,
     ReportRunRow,
@@ -396,6 +398,81 @@ class SQLRepository(
                 for row in rows
             ]
 
+    def save_snapshot(self, snapshot: PolicySnapshot) -> PolicySnapshot:
+        with self._session() as session:
+            session.add(
+                PolicySnapshotRow(
+                    snapshot_id=snapshot.snapshot_id,
+                    workspace_id=snapshot.workspace_id,
+                    job_id=snapshot.job_id,
+                    policy_family=snapshot.policy_family.value,
+                    policy_version=snapshot.policy_version,
+                    payload_json=snapshot.payload,
+                    is_active=snapshot.is_active,
+                    created_at=snapshot.created_at,
+                    activated_at=snapshot.activated_at,
+                )
+            )
+        return snapshot
+
+    def list_snapshots(self, workspace_id: str, job_id: str) -> list[PolicySnapshot]:
+        statement = (
+            select(PolicySnapshotRow)
+            .where(
+                PolicySnapshotRow.workspace_id == workspace_id,
+                PolicySnapshotRow.job_id == job_id,
+            )
+            .order_by(PolicySnapshotRow.created_at.desc(), PolicySnapshotRow.snapshot_id.desc())
+        )
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [self._row_to_policy_snapshot(row) for row in rows]
+
+    def activate_snapshot(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        snapshot_id: str,
+    ) -> PolicySnapshot | None:
+        with self._session() as session:
+            target = session.get(PolicySnapshotRow, snapshot_id)
+            if target is None or target.workspace_id != workspace_id or target.job_id != job_id:
+                return None
+
+            for row in session.scalars(
+                select(PolicySnapshotRow).where(
+                    PolicySnapshotRow.workspace_id == workspace_id,
+                    PolicySnapshotRow.job_id == job_id,
+                    PolicySnapshotRow.is_active.is_(True),
+                )
+            ).all():
+                row.is_active = False
+                row.activated_at = None
+                session.add(row)
+
+            target.is_active = True
+            target.activated_at = datetime.now(tz=UTC)
+            session.add(target)
+            session.flush()
+            return self._row_to_policy_snapshot(target)
+
+    def get_active_snapshot(self, workspace_id: str, job_id: str) -> PolicySnapshot | None:
+        statement = (
+            select(PolicySnapshotRow)
+            .where(
+                PolicySnapshotRow.workspace_id == workspace_id,
+                PolicySnapshotRow.job_id == job_id,
+                PolicySnapshotRow.is_active.is_(True),
+            )
+            .order_by(PolicySnapshotRow.activated_at.desc(), PolicySnapshotRow.snapshot_id.desc())
+        )
+        with self._session() as session:
+            row = session.scalars(statement).first()
+            if row is None:
+                return None
+            return self._row_to_policy_snapshot(row)
+
     def save_report(self, report: ReportPayload) -> ReportPayload:
         with self._session() as session:
             session.add(
@@ -548,6 +625,21 @@ class SQLRepository(
         )
         with self._session() as session:
             return list(session.scalars(statement).all())
+
+    def _row_to_policy_snapshot(self, row: PolicySnapshotRow) -> PolicySnapshot:
+        return PolicySnapshot.model_validate(
+            {
+                "snapshot_id": row.snapshot_id,
+                "workspace_id": row.workspace_id,
+                "job_id": row.job_id,
+                "policy_family": row.policy_family,
+                "policy_version": row.policy_version,
+                "payload": row.payload_json,
+                "is_active": row.is_active,
+                "created_at": row.created_at,
+                "activated_at": row.activated_at,
+            }
+        )
 
     def _row_to_job(self, row: JobRow | None) -> Job | None:
         if row is None:
