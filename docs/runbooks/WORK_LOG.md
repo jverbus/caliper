@@ -166,3 +166,4 @@
 - Added dedicated workflow demo execution doc with run instructions and acceptance mapping (`docs/execution/WORKFLOW_DEMO.md`).
 - Added integration coverage validating workflow demo success in both embedded and service mode (`tests/integration/test_workflow_demo.py`).
 - Updated Makefile runtime/demo targets to export workspace `PYTHONPATH` so demo/service entrypoints run directly (`Makefile`).
+- Fixed PR #29 CI blockers by ensuring workflow demo bootstraps SQLite directories/reset behavior for repeatable runs and by tightening workflow demo typing annotations (`examples/workflow_demo/demo.py`, `tests/integration/test_workflow_demo.py`).

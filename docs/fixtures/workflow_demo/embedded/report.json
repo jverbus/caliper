@@ -1,29 +1,28 @@
 {
-  "report_id": "rpt_0625a1dc9dfd",
+  "report_id": "rpt_ee258196af94",
   "workspace_id": "ws-workflow-demo",
-  "job_id": "job_82ec3074b002",
-  "generated_at": "2026-03-14T19:44:18.175948Z",
+  "job_id": "job_c219b01b2f58",
+  "generated_at": "2026-03-14T19:54:48.097817Z",
   "leaders": [
     {
       "arm_id": "arm-accurate",
-      "assignments": 7,
+      "assignments": 6,
       "exposures": 10,
-      "outcomes": 14,
+      "outcomes": 12,
       "avg_reward": 0.27749999999999997,
-      "assignment_share": 0.7
+      "assignment_share": 0.6
     },
     {
       "arm_id": "arm-fast",
-      "assignments": 3,
+      "assignments": 4,
       "exposures": 10,
-      "outcomes": 6,
+      "outcomes": 8,
       "avg_reward": 0.21999999999999997,
-      "assignment_share": 0.3
+      "assignment_share": 0.4
     }
   ],
   "traffic_shifts": [
-    "arm-accurate: -1 assignments in later window",
-    "arm-fast: +1 assignments in later window"
+    "No meaningful traffic shift detected between early and late windows."
   ],
   "guardrails": [],
   "segment_findings": [
@@ -39,10 +38,10 @@
       "detail": "Arm 'arm-accurate' has the strongest observed average reward."
     }
   ],
-  "markdown": "# Caliper report for Workflow demo (embedded)\n\n## Leaders\n- `arm-accurate` avg_reward=0.2775 share=70.00%\n- `arm-fast` avg_reward=0.2200 share=30.00%\n\n## Traffic shifts\n- arm-accurate: -1 assignments in later window\n- arm-fast: +1 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'arm-accurate' has the strongest observed average reward.",
-  "html": "<html><body><pre># Caliper report for Workflow demo (embedded)\n\n## Leaders\n- `arm-accurate` avg_reward=0.2775 share=70.00%\n- `arm-fast` avg_reward=0.2200 share=30.00%\n\n## Traffic shifts\n- arm-accurate: -1 assignments in later window\n- arm-fast: +1 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'arm-accurate' has the strongest observed average reward.</pre></body></html>",
+  "markdown": "# Caliper report for Workflow demo (embedded)\n\n## Leaders\n- `arm-accurate` avg_reward=0.2775 share=60.00%\n- `arm-fast` avg_reward=0.2200 share=40.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'arm-accurate' has the strongest observed average reward.",
+  "html": "<html><body><pre># Caliper report for Workflow demo (embedded)\n\n## Leaders\n- `arm-accurate` avg_reward=0.2775 share=60.00%\n- `arm-fast` avg_reward=0.2200 share=40.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'arm-accurate' has the strongest observed average reward.</pre></body></html>",
   "assignment_counts": {
-    "arm-fast": 3,
-    "arm-accurate": 7
+    "arm-fast": 4,
+    "arm-accurate": 6
   }
 }

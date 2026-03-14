@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import Any, cast
 from urllib.error import URLError
 from urllib.request import urlopen
 
@@ -14,7 +15,9 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 
-def _run_demo(*, mode: str, db_url: str, api_url: str, api_token: str | None):
+def _run_demo(
+    *, mode: str, db_url: str, api_url: str, api_token: str | None
+) -> dict[str, Any]:
     from examples.workflow_demo.demo import run_demo
 
     return run_demo(mode=mode, db_url=db_url, api_url=api_url, api_token=api_token)
@@ -23,7 +26,7 @@ def _run_demo(*, mode: str, db_url: str, api_url: str, api_token: str | None):
 def _free_port() -> int:
     sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     sock.bind(("127.0.0.1", 0))
-    port = sock.getsockname()[1]
+    port = cast(int, sock.getsockname()[1])
     sock.close()
     return port
 
