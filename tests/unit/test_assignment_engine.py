@@ -220,3 +220,64 @@ def test_ucb1_handles_cold_start_with_uniform_unseen_arms() -> None:
     assert result.diagnostics.scores == {"arm_a": 0.5, "arm_b": 0.5}
     assert result.diagnostics.fallback_used is False
     assert result.propensity == 0.5
+
+
+def test_thompson_sampling_shifts_traffic_toward_better_arms() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.THOMPSON_SAMPLING,
+                params={
+                    "alpha": {"arm_a": 18.0, "arm_b": 4.0},
+                    "beta": {"arm_a": 4.0, "arm_b": 12.0},
+                },
+            ),
+        }
+    )
+    arms = [_arm("arm_a"), _arm("arm_b")]
+
+    counts: Counter[str] = Counter()
+    for idx in range(2000):
+        request = AssignRequest(
+            workspace_id="ws_demo",
+            job_id="job_1",
+            unit_id=f"u{idx}",
+            idempotency_key=f"req-{idx}",
+        )
+        result = engine.assign(job=job, request=request, arms=arms)
+        counts[result.arm_id] += 1
+
+    assert counts["arm_a"] > counts["arm_b"]
+    assert 0.75 < (counts["arm_a"] / 2000) < 0.95
+
+
+def test_thompson_sampling_emits_diagnostics() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.THOMPSON_SAMPLING,
+                params={
+                    "alpha": {"arm_a": 6.0, "arm_b": 2.0},
+                    "beta": {"arm_a": 3.0, "arm_b": 6.0},
+                },
+            ),
+        }
+    )
+    request = AssignRequest(
+        workspace_id="ws_demo",
+        job_id="job_1",
+        unit_id="u-ts",
+        idempotency_key="req-ts",
+    )
+
+    result = engine.assign(job=job, request=request, arms=[_arm("arm_a"), _arm("arm_b")])
+
+    assert result.diagnostics.reason == "thompson_sampling_policy"
+    assert set(result.diagnostics.scores.keys()) == {"arm_a", "arm_b"}
+    assert abs(sum(result.diagnostics.scores.values()) - 1.0) < 1e-9
+    assert 0.0 < result.propensity <= 1.0
+    assert result.propensity == result.diagnostics.scores[result.arm_id]

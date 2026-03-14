@@ -125,3 +125,8 @@
 - Added explicit cold-start handling for unseen arms to guarantee safe initial exploration before UCB confidence scoring (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
 - Added seeded simulation and cold-start unit coverage for UCB1 diagnostics/propensity behavior (`tests/unit/test_assignment_engine.py`).
 - Documented UCB1 policy behavior and parameter contract (`docs/execution/UCB1_POLICY.md`).
+- CI for PR #22 passed and chunk **P4-002 UCB1** was merged (`d9b83ab`).
+- Started chunk **P4-003 Thompson sampling**.
+- Added Thompson Sampling policy-family routing with deterministic Beta posterior sampling and normalized propensity diagnostics (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added seeded simulation and diagnostics unit coverage for Thompson Sampling behavior (`tests/unit/test_assignment_engine.py`).
+- Documented Thompson Sampling policy behavior and parameter contract (`docs/execution/THOMPSON_SAMPLING_POLICY.md`).
