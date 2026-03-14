@@ -189,7 +189,7 @@ def _log_outcomes_for_tranche(
     delayed_events: list[str],
 ) -> None:
     now = datetime.now(tz=UTC)
-    for idx, instruction in enumerate(plan.instructions, start=1):
+    for instruction in plan.instructions:
         delayed_open_at = now + timedelta(hours=24 + tranche_index)
         adapter.ingest_webhook(
             event=EmailWebhookEvent(
@@ -203,7 +203,7 @@ def _log_outcomes_for_tranche(
         )
         delayed_events.append(instruction.decision_id)
 
-        if instruction.arm_id == "subject-b" and idx % 2 == 1:
+        if instruction.arm_id == "subject-b":
             adapter.ingest_webhook(
                 event=EmailWebhookEvent(
                     webhook_event_id=f"unsub-{instruction.decision_id}",
