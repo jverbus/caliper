@@ -108,3 +108,9 @@
 - Added report generation and latest report retrieval API endpoints (`apps/api/main.py`).
 - Added integration coverage for report generation/retrieval and documented report behavior (`tests/integration/test_api_reports.py`, `docs/execution/REPORT_GENERATION.md`).
 - Opened PR #19 for P3-006 (`chunk/p3-006-report-generation`).
+- CI for PR #19 passed and chunk **P3-006 Report generation** was merged (`02b9761`).
+- Started chunk **P3-007 Worker or scheduler loop**.
+- Added durable DB-backed scheduled task table and worker loop orchestration for periodic report + policy-update triggers (`packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `apps/worker/loop.py`).
+- Replaced worker scaffold entrypoint with polling/one-shot scheduler runner (`apps/worker/main.py`).
+- Added integration coverage for scheduling, due-task execution, and restart recovery (`tests/integration/test_worker_scheduler.py`).
+- Documented worker scheduler behavior, retries, and recovery (`docs/execution/WORKER_SCHEDULER_LOOP.md`).
