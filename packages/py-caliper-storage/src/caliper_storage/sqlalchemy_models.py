@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import JSON, DateTime, Float, Index, Integer, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, Index, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -133,7 +133,9 @@ class PolicySnapshotRow(Base):
     policy_family: Mapped[str] = mapped_column(String(64))
     policy_version: Mapped[str] = mapped_column(String(64), index=True)
     payload_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    activated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
 class AuditRow(Base):

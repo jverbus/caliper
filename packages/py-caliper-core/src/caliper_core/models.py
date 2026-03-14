@@ -272,7 +272,25 @@ class PolicySnapshot(BaseModel):
     policy_family: PolicyFamily
     policy_version: str
     payload: dict[str, Any] = Field(default_factory=dict)
+    is_active: bool = False
     created_at: datetime = Field(default_factory=utc_now)
+    activated_at: datetime | None = None
+
+
+class PolicySnapshotCreateRequest(BaseModel):
+    workspace_id: str
+    policy_family: PolicyFamily
+    policy_version: str
+    payload: dict[str, Any] = Field(default_factory=dict)
+
+
+class PolicySnapshotActivateRequest(BaseModel):
+    workspace_id: str
+
+
+class PolicySnapshotRollbackRequest(BaseModel):
+    workspace_id: str
+    target_snapshot_id: str | None = None
 
 
 class ReportGenerateRequest(BaseModel):

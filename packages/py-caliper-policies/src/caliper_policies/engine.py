@@ -43,6 +43,10 @@ class AssignmentEngine:
         )
         chosen = self._choose(weighted=weighted, draw=draw)
 
+        policy_version = str(
+            job.policy_spec.params.get("policy_version", job.updated_at.strftime("%Y%m%d%H%M%S"))
+        )
+
         return AssignResult(
             workspace_id=request.workspace_id,
             job_id=request.job_id,
@@ -50,7 +54,7 @@ class AssignmentEngine:
             arm_id=chosen.arm_id,
             propensity=chosen.weight,
             policy_family=job.policy_spec.policy_family,
-            policy_version=job.updated_at.strftime("%Y%m%d%H%M%S"),
+            policy_version=policy_version,
             context_schema_version=job.policy_spec.context_schema_version,
             diagnostics=DecisionDiagnostics(
                 scores={item.arm_id: item.weight for item in weighted},

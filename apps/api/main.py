@@ -31,6 +31,10 @@ from caliper_core.models import (
     JobStateTransitionRequest,
     JobStatus,
     OutcomeCreate,
+    PolicySnapshot,
+    PolicySnapshotActivateRequest,
+    PolicySnapshotCreateRequest,
+    PolicySnapshotRollbackRequest,
     ReportGenerateRequest,
     ReportPayload,
 )
@@ -113,6 +117,16 @@ def _assign_request_hash(payload: AssignRequest) -> str:
     return _request_hash(payload)
 
 
+
+
+def _apply_active_policy_snapshot(*, job: Job, snapshot: PolicySnapshot) -> Job:
+    policy_spec = job.policy_spec.model_copy(
+        update={
+            "policy_family": snapshot.policy_family,
+            "params": {**snapshot.payload, "policy_version": snapshot.policy_version},
+        }
+    )
+    return job.model_copy(update={"policy_spec": policy_spec})
 def create_app() -> FastAPI:
     app = FastAPI(title="Caliper API", version="0.1.0")
 
@@ -271,6 +285,199 @@ def create_app() -> FastAPI:
         return repository.list_audit(workspace_id=workspace_id, job_id=job_id)
 
     @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots",
+        dependencies=[Depends(require_api_token)],
+        response_model=PolicySnapshot,
+    )
+    def create_policy_snapshot(
+        job_id: str,
+        payload: PolicySnapshotCreateRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> PolicySnapshot:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if payload.workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        snapshot = repository.save_snapshot(
+            PolicySnapshot(
+                workspace_id=payload.workspace_id,
+                job_id=job_id,
+                policy_family=payload.policy_family,
+                policy_version=payload.policy_version,
+                payload=payload.payload,
+            )
+        )
+        repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            action="policy.snapshot.created",
+            metadata={
+                "snapshot_id": snapshot.snapshot_id,
+                "policy_version": snapshot.policy_version,
+            },
+        )
+        return snapshot
+
+    @app.get(
+        "/v1/jobs/{job_id}/policy-snapshots",
+        dependencies=[Depends(require_api_token)],
+        response_model=list[PolicySnapshot],
+    )
+    def list_policy_snapshots(
+        job_id: str,
+        workspace_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> list[PolicySnapshot]:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+        return repository.list_snapshots(workspace_id, job_id)
+
+    @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/activate",
+        dependencies=[Depends(require_api_token)],
+        response_model=PolicySnapshot,
+    )
+    def activate_policy_snapshot(
+        job_id: str,
+        snapshot_id: str,
+        payload: PolicySnapshotActivateRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> PolicySnapshot:
+        activated = repository.activate_snapshot(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            snapshot_id=snapshot_id,
+        )
+        if activated is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot '{snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        repository.append(
+            EventEnvelope(
+                workspace_id=payload.workspace_id,
+                job_id=job_id,
+                event_type="policy.updated",
+                entity_id=activated.snapshot_id,
+                payload={
+                    "snapshot_id": activated.snapshot_id,
+                    "policy_family": activated.policy_family.value,
+                    "policy_version": activated.policy_version,
+                    "activated_at": (
+                        activated.activated_at.isoformat()
+                        if activated.activated_at
+                        else None
+                    ),
+                },
+            )
+        )
+        repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            action="policy.snapshot.activated",
+            metadata={
+                "snapshot_id": activated.snapshot_id,
+                "policy_version": activated.policy_version,
+            },
+        )
+        return activated
+
+    @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots/rollback",
+        dependencies=[Depends(require_api_token)],
+        response_model=PolicySnapshot,
+    )
+    def rollback_policy_snapshot(
+        job_id: str,
+        payload: PolicySnapshotRollbackRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> PolicySnapshot:
+        snapshots = repository.list_snapshots(payload.workspace_id, job_id)
+        if not snapshots:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"No policy snapshots found for job '{job_id}'.",
+            )
+
+        active = next((snapshot for snapshot in snapshots if snapshot.is_active), None)
+        if payload.target_snapshot_id is not None:
+            target = next(
+                (s for s in snapshots if s.snapshot_id == payload.target_snapshot_id),
+                None,
+            )
+        else:
+            target = None
+            for snapshot in snapshots:
+                if active is None or snapshot.snapshot_id != active.snapshot_id:
+                    target = snapshot
+                    break
+
+        if target is None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="No prior snapshot available for rollback.",
+            )
+
+        activated = repository.activate_snapshot(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            snapshot_id=target.snapshot_id,
+        )
+        if activated is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot '{target.snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        repository.append(
+            EventEnvelope(
+                workspace_id=payload.workspace_id,
+                job_id=job_id,
+                event_type="policy.updated",
+                entity_id=activated.snapshot_id,
+                payload={
+                    "snapshot_id": activated.snapshot_id,
+                    "policy_family": activated.policy_family.value,
+                    "policy_version": activated.policy_version,
+                    "rollback": True,
+                    "activated_at": (
+                        activated.activated_at.isoformat()
+                        if activated.activated_at
+                        else None
+                    ),
+                },
+            )
+        )
+        repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            action="policy.snapshot.rollback",
+            metadata={
+                "snapshot_id": activated.snapshot_id,
+                "policy_version": activated.policy_version,
+            },
+        )
+        return activated
+
+    @app.post(
         "/v1/jobs/{job_id}/arms:batch_register",
         dependencies=[Depends(require_api_token)],
         response_model=ArmBulkRegisterResponse,
@@ -379,10 +586,17 @@ def create_app() -> FastAPI:
                 detail="workspace_id does not match the job workspace.",
             )
 
+        active_snapshot = repository.get_active_snapshot(payload.workspace_id, payload.job_id)
+        effective_job = (
+            _apply_active_policy_snapshot(job=job, snapshot=active_snapshot)
+            if active_snapshot is not None
+            else job
+        )
+
         engine = AssignmentEngine()
         arms = repository.list_arms(workspace_id=payload.workspace_id, job_id=payload.job_id)
         try:
-            decision = engine.assign(job=job, request=payload, arms=arms)
+            decision = engine.assign(job=effective_job, request=payload, arms=arms)
         except AssignmentError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 

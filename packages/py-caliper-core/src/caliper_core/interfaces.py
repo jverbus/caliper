@@ -87,6 +87,16 @@ class GuardrailEventRepository(Protocol):
 class PolicySnapshotRepository(Protocol):
     def save_snapshot(self, snapshot: PolicySnapshot) -> PolicySnapshot: ...
 
+    def list_snapshots(self, workspace_id: str, job_id: str) -> list[PolicySnapshot]: ...
+
+    def activate_snapshot(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        snapshot_id: str,
+    ) -> PolicySnapshot | None: ...
+
     def get_active_snapshot(self, workspace_id: str, job_id: str) -> PolicySnapshot | None: ...
 
 
