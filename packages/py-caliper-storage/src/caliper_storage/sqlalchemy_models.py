@@ -18,6 +18,7 @@ class JobRow(Base):
     name: Mapped[str] = mapped_column(String(255))
     surface_type: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(32), index=True)
+    approval_state: Mapped[str] = mapped_column(String(32), default="not_required")
     objective_spec: Mapped[dict[str, object]] = mapped_column(JSON)
     guardrail_spec: Mapped[dict[str, object]] = mapped_column(JSON)
     policy_spec: Mapped[dict[str, object]] = mapped_column(JSON)

@@ -16,12 +16,15 @@ from caliper_core.interfaces import (
     OutcomeRepository,
 )
 from caliper_core.models import (
+    ApprovalState,
     Arm,
     ArmState,
     AssignResult,
+    AuditRecord,
     ExposureCreate,
     Job,
     JobPatch,
+    JobStatus,
     OutcomeCreate,
 )
 from sqlalchemy import delete, select
@@ -75,6 +78,7 @@ class SQLRepository(
             name=job.name,
             surface_type=job.surface_type.value,
             status=job.status.value,
+            approval_state=job.approval_state.value,
             objective_spec=job.objective_spec.model_dump(mode="json"),
             guardrail_spec=job.guardrail_spec.model_dump(mode="json"),
             policy_spec=job.policy_spec.model_dump(mode="json"),
@@ -116,6 +120,26 @@ class SQLRepository(
             session.flush()
             return self._row_to_job(row)
 
+    def set_job_state(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        status: JobStatus,
+        approval_state: ApprovalState | None = None,
+    ) -> Job | None:
+        with self._session() as session:
+            row = session.get(JobRow, job_id)
+            if row is None or row.workspace_id != workspace_id:
+                return None
+            row.status = status.value
+            if approval_state is not None:
+                row.approval_state = approval_state.value
+            row.updated_at = datetime.now(tz=UTC)
+            session.add(row)
+            session.flush()
+            return self._row_to_job(row)
+
     def append_audit(
         self,
         workspace_id: str,
@@ -133,6 +157,19 @@ class SQLRepository(
                     metadata_json=metadata,
                 )
             )
+
+    def list_audit(self, *, workspace_id: str, job_id: str) -> list[AuditRecord]:
+        statement = (
+            select(AuditRow)
+            .where(AuditRow.workspace_id == workspace_id, AuditRow.job_id == job_id)
+            .order_by(AuditRow.timestamp.asc(), AuditRow.audit_id.asc())
+        )
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [
+                AuditRecord(action=row.action, timestamp=row.timestamp, metadata=row.metadata_json)
+                for row in rows
+            ]
 
     def upsert_arm(self, arm: Arm) -> Arm:
         with self._session() as session:
@@ -409,6 +446,7 @@ class SQLRepository(
                 "name": row.name,
                 "surface_type": row.surface_type,
                 "status": row.status,
+                "approval_state": row.approval_state,
                 "objective_spec": row.objective_spec,
                 "guardrail_spec": row.guardrail_spec,
                 "policy_spec": row.policy_spec,
