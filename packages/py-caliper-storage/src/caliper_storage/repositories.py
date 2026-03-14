@@ -8,6 +8,7 @@ from uuid import uuid4
 from caliper_core.events import EventEnvelope
 from caliper_core.interfaces import (
     ArmRepository,
+    AuditRepository,
     DecisionRepository,
     EventLedger,
     ExposureRepository,
@@ -20,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from caliper_storage.sqlalchemy_models import (
     ArmRow,
+    AuditRow,
     DecisionRow,
     EventRow,
     ExposureRow,
@@ -39,6 +41,7 @@ class SQLRepository(
     ExposureRepository,
     OutcomeRepository,
     EventLedger,
+    AuditRepository,
 ):
     """SQLAlchemy-backed repository implementation for core domain models."""
 
@@ -104,6 +107,24 @@ class SQLRepository(
             session.add(row)
             session.flush()
             return self._row_to_job(row)
+
+    def append_audit(
+        self,
+        workspace_id: str,
+        job_id: str,
+        action: str,
+        metadata: dict[str, object],
+    ) -> None:
+        with self._session() as session:
+            session.add(
+                AuditRow(
+                    workspace_id=workspace_id,
+                    job_id=job_id,
+                    action=action,
+                    timestamp=datetime.now(tz=UTC),
+                    metadata_json=metadata,
+                )
+            )
 
     def upsert_arm(self, arm: Arm) -> Arm:
         with self._session() as session:
