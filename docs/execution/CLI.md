@@ -25,6 +25,9 @@ All commands accept:
 
 - `pause-job`
 - `resume-job`
+- `promote-policy`
+- `rollback-policy`
+- `job-audit`
 
 ## Example flow
 

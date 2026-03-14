@@ -213,3 +213,9 @@
 - Upgraded report rendering to a stable human-readable structure with summary metrics, leaders table, and semantic HTML sections (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
 - Added recommendation language rules with confidence-aware promotion guidance and explicit guardrail escalation wording (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
 - Added report rendering coverage for stable markdown/html sections and updated report integration assertions (`tests/unit/test_report_generator.py`, `tests/integration/test_api_reports.py`).
+- CI for PR #38 passed and chunk **P8-001 Human-readable reports polish** was merged (`7637c90`).
+- Started chunk **P8-002 Pause, promote, and rollback UX**.
+- Added policy promotion UX alias endpoint (`POST /v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/promote`) while retaining existing activation flow (`apps/api/main.py`).
+- Expanded CLI operator controls with `promote-policy`, `rollback-policy`, and `job-audit` commands plus GET query support (`apps/cli/main.py`).
+- Added/updated tests covering operator controls and rollback correctness + audit visibility (`tests/unit/test_cli_commands.py`, `tests/integration/test_api_policy_snapshots.py`).
+- Documented pause/promote/rollback UX and updated CLI docs (`docs/execution/PAUSE_PROMOTE_ROLLBACK_UX.md`, `docs/execution/CLI.md`).

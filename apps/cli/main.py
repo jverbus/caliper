@@ -25,6 +25,7 @@ def _request(
     method: str,
     path: str,
     payload: Mapping[str, Any] | None = None,
+    query: Mapping[str, Any] | None = None,
     api_url: str,
     api_token: str | None,
 ) -> dict[str, Any] | list[Any]:
@@ -33,7 +34,7 @@ def _request(
         headers["Authorization"] = f"Bearer {api_token}"
 
     with httpx.Client(base_url=api_url, timeout=30.0, headers=headers) as client:
-        response = client.request(method, path, json=payload)
+        response = client.request(method, path, json=payload, params=query)
 
     if response.status_code >= 400:
         detail: str
@@ -264,6 +265,66 @@ def resume_job(
             method="POST",
             path=f"/v1/jobs/{job_id}/resume",
             payload=payload,
+            api_url=api_url,
+            api_token=api_token,
+        )
+    )
+
+
+@app.command("promote-policy")
+def promote_policy(
+    workspace_id: str = typer.Option(...),
+    job_id: str = typer.Option(...),
+    snapshot_id: str = typer.Option(...),
+    api_url: str = typer.Option("http://127.0.0.1:8000", envvar="CALIPER_API_URL"),
+    api_token: str | None = typer.Option(None, envvar="CALIPER_API_TOKEN"),
+) -> None:
+    payload = {"workspace_id": workspace_id}
+    _emit(
+        _request(
+            method="POST",
+            path=f"/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/promote",
+            payload=payload,
+            api_url=api_url,
+            api_token=api_token,
+        )
+    )
+
+
+@app.command("rollback-policy")
+def rollback_policy(
+    workspace_id: str = typer.Option(...),
+    job_id: str = typer.Option(...),
+    target_snapshot_id: str | None = typer.Option(None),
+    api_url: str = typer.Option("http://127.0.0.1:8000", envvar="CALIPER_API_URL"),
+    api_token: str | None = typer.Option(None, envvar="CALIPER_API_TOKEN"),
+) -> None:
+    payload: dict[str, Any] = {"workspace_id": workspace_id}
+    if target_snapshot_id is not None:
+        payload["target_snapshot_id"] = target_snapshot_id
+    _emit(
+        _request(
+            method="POST",
+            path=f"/v1/jobs/{job_id}/policy-snapshots/rollback",
+            payload=payload,
+            api_url=api_url,
+            api_token=api_token,
+        )
+    )
+
+
+@app.command("job-audit")
+def job_audit(
+    workspace_id: str = typer.Option(...),
+    job_id: str = typer.Option(...),
+    api_url: str = typer.Option("http://127.0.0.1:8000", envvar="CALIPER_API_URL"),
+    api_token: str | None = typer.Option(None, envvar="CALIPER_API_TOKEN"),
+) -> None:
+    _emit(
+        _request(
+            method="GET",
+            path=f"/v1/jobs/{job_id}/audit",
+            query={"workspace_id": workspace_id},
             api_url=api_url,
             api_token=api_token,
         )
