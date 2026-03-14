@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.venv/
+
+# Node
+node_modules/
+.pnpm-store/
+dist/
+
+# Local runtime artifacts
+data/
+reports/
+exports/
+*.db
+*.db-shm
+*.db-wal
+
+# IDE/OS
+.DS_Store
+.vscode/
+.idea/
