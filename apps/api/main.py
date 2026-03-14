@@ -11,6 +11,7 @@ from api.dependencies import (
     readiness_check,
     require_api_token,
 )
+from caliper_core.context import ContextValidationError, validate_and_redact_context
 from caliper_core.events import EventEnvelope
 from caliper_core.models import (
     ApprovalState,
@@ -625,10 +626,22 @@ def create_app() -> FastAPI:
             else job
         )
 
+        try:
+            context_result = validate_and_redact_context(
+                context=payload.context,
+                policy_spec=effective_job.policy_spec,
+            )
+        except ContextValidationError as exc:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+        sanitized_payload = payload.model_copy(
+            update={"context": context_result.sanitized_context}
+        )
+
         engine = AssignmentEngine()
         arms = repository.list_arms(workspace_id=payload.workspace_id, job_id=payload.job_id)
         try:
-            decision = engine.assign(job=effective_job, request=payload, arms=arms)
+            decision = engine.assign(job=effective_job, request=sanitized_payload, arms=arms)
         except AssignmentError as exc:
             raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
 
