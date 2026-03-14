@@ -147,3 +147,9 @@
 - Replaced CLI scaffold with operator commands for create job, add arms, assign, log exposure, log outcome, generate report, pause, and resume (`apps/cli/main.py`).
 - Added CLI unit coverage for end-to-end command wiring and payload contract behavior (`tests/unit/test_cli_commands.py`).
 - Documented CLI command surface and usage examples (`docs/execution/CLI.md`).
+- CI for PR #26 passed and chunk **P5-001 CLI** was merged (`17f1d6e`).
+- Started chunk **P5-002 Python SDK**.
+- Implemented service + embedded Python SDK clients covering create/get/update job, arm registration, assign, exposure/outcome logging, and report generation (`packages/py-sdk/src/caliper_sdk/client.py`, `packages/py-sdk/src/caliper_sdk/__init__.py`).
+- Added unit coverage for both service-mode and embedded-mode SDK workflows (`tests/unit/test_python_sdk.py`).
+- Documented SDK behavior and usage examples (`docs/execution/PYTHON_SDK.md`).
+- Fixed PR #27 CI typecheck blockers by tightening `ServiceCaliperClient._request` return typing and updating SDK unit fixtures to use typed `GuardrailSpec` (`packages/py-sdk/src/caliper_sdk/client.py`, `tests/unit/test_python_sdk.py`).
