@@ -141,3 +141,4 @@
 - Added worker-integrated guardrail evaluation and auto-actions (annotate/cap/demote/pause/manual-resume) with persisted breach events + audit entries (`apps/worker/loop.py`, `packages/py-caliper-reward/src/caliper_reward/guardrails.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added unit/integration coverage for breach detection, target-arm selection, and pause-action execution in scheduler flows (`tests/unit/test_guardrail_engine.py`, `tests/integration/test_worker_scheduler.py`).
 - Documented guardrail engine behavior and acceptance mapping (`docs/execution/GUARDRAIL_ENGINE.md`).
+- Resolved merge conflicts on PR #25 by rebasing `chunk/p4-005-guardrail-engine-auto-actions` onto `origin/master` and force-pushed updated branch (`6ff5887`) to re-run CI.
