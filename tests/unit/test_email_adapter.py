@@ -9,8 +9,10 @@ from caliper_adapters import (
     EmailAdapter,
     EmailRecipient,
     EmailSendPlan,
+    EmailTranchePlanner,
     EmailWebhookEvent,
     EmailWebhookType,
+    TranchePlanningBlockedError,
 )
 from caliper_core.models import (
     AssignResult,
@@ -228,3 +230,73 @@ def test_ingest_webhook_is_idempotent_by_webhook_event_id() -> None:
     assert second is None
     assert len(client.outcomes) == 1
     assert client.outcomes[0].events[0].outcome_type == "email_click"
+
+
+def test_tranche_planner_refreshes_candidate_arms_between_tranches() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(client=client, workspace_id="ws-email", job_id="job-email")
+
+    active_arms_versions = [["subject-a", "subject-b"], ["subject-b"]]
+
+    def _active_arms() -> list[str]:
+        return active_arms_versions.pop(0)
+
+    planner = EmailTranchePlanner(
+        adapter=adapter,
+        active_arm_supplier=_active_arms,
+        can_send_supplier=lambda: True,
+    )
+
+    planner.plan_next_tranche(
+        tranche_id="t1",
+        recipients=[EmailRecipient(recipient_id="u-801")],
+        idempotency_prefix="campaign-2026-03",
+    )
+    planner.plan_next_tranche(
+        tranche_id="t2",
+        recipients=[EmailRecipient(recipient_id="u-802")],
+        idempotency_prefix="campaign-2026-03",
+    )
+
+    assert client.assign_payloads[0].candidate_arms == ["subject-a", "subject-b"]
+    assert client.assign_payloads[1].candidate_arms == ["subject-b"]
+
+
+def test_tranche_planner_blocks_when_job_is_paused() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(client=client, workspace_id="ws-email", job_id="job-email")
+    planner = EmailTranchePlanner(
+        adapter=adapter,
+        active_arm_supplier=lambda: ["subject-a"],
+        can_send_supplier=lambda: False,
+    )
+
+    try:
+        planner.plan_next_tranche(
+            tranche_id="t-paused",
+            recipients=[EmailRecipient(recipient_id="u-901")],
+            idempotency_prefix="campaign-2026-03",
+        )
+        raise AssertionError("expected TranchePlanningBlockedError")
+    except TranchePlanningBlockedError as exc:
+        assert "not sendable" in str(exc)
+
+
+def test_tranche_planner_blocks_when_no_active_arms() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(client=client, workspace_id="ws-email", job_id="job-email")
+    planner = EmailTranchePlanner(
+        adapter=adapter,
+        active_arm_supplier=lambda: [],
+        can_send_supplier=lambda: True,
+    )
+
+    try:
+        planner.plan_next_tranche(
+            tranche_id="t-empty",
+            recipients=[EmailRecipient(recipient_id="u-902")],
+            idempotency_prefix="campaign-2026-03",
+        )
+        raise AssertionError("expected TranchePlanningBlockedError")
+    except TranchePlanningBlockedError as exc:
+        assert "No active arms" in str(exc)

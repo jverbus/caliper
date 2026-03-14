@@ -7,8 +7,10 @@ from caliper_adapters.email import (
     EmailRecipient,
     EmailSendInstruction,
     EmailSendPlan,
+    EmailTranchePlanner,
     EmailWebhookEvent,
     EmailWebhookType,
+    TranchePlanningBlockedError,
 )
 from caliper_adapters.web import WebAdapter, WebAssignment
 from caliper_adapters.workflow import WorkflowAdapter, WorkflowAssignment
@@ -20,8 +22,10 @@ __all__ = [
     "EmailRecipient",
     "EmailSendInstruction",
     "EmailSendPlan",
+    "EmailTranchePlanner",
     "EmailWebhookEvent",
     "EmailWebhookType",
+    "TranchePlanningBlockedError",
     "WebAdapter",
     "WebAssignment",
     "WorkflowAdapter",
