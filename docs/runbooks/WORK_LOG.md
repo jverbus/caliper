@@ -11,3 +11,7 @@
 - Added GitHub Actions CI workflow (`.github/workflows/ci.yml`) for quality, postgres smoke, and demo smoke jobs.
 - Added placeholder integration/property tests plus Postgres smoke test to keep CI green on scaffold state.
 - Fixed CI blocker after first PR run by pinning `packageManager` (`pnpm@10.23.0`) for `pnpm/action-setup@v4`.
+- PR #2 for P0-002 merged (`63b9b8b`).
+- Started chunk **P0-003 ADR and governance scaffolding**.
+- Added ADR directory and template (`docs/adr/README.md`, `docs/adr/ADR-TEMPLATE.md`).
+- Added pull request template (`.github/pull_request_template.md`) and work log template (`docs/runbooks/WORK_LOG_TEMPLATE.md`).
