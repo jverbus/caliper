@@ -246,3 +246,4 @@
 - Added policy snapshot fetch helper for read-only shadow evaluation (`packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-core/src/caliper_core/interfaces.py`).
 - Added integration coverage asserting shadow evaluation does not create live assignment events and records audit trail (`tests/integration/test_api_assign.py`).
 - Documented shadow mode scaffold behavior and acceptance mapping (`docs/execution/SHADOW_MODE_SCAFFOLD.md`).
+- Opened PR #43 for P9-002 (`chunk/p9-002-shadow-mode-scaffold`).
