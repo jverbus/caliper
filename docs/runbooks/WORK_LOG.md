@@ -142,3 +142,8 @@
 - Added unit/integration coverage for breach detection, target-arm selection, and pause-action execution in scheduler flows (`tests/unit/test_guardrail_engine.py`, `tests/integration/test_worker_scheduler.py`).
 - Documented guardrail engine behavior and acceptance mapping (`docs/execution/GUARDRAIL_ENGINE.md`).
 - Resolved merge conflicts on PR #25 by rebasing `chunk/p4-005-guardrail-engine-auto-actions` onto `origin/master` and force-pushed updated branch (`6ff5887`) to re-run CI.
+- CI for PR #25 passed and chunk **P4-005 Guardrail engine and auto actions** was merged (`88091f3`).
+- Started chunk **P5-001 CLI**.
+- Replaced CLI scaffold with operator commands for create job, add arms, assign, log exposure, log outcome, generate report, pause, and resume (`apps/cli/main.py`).
+- Added CLI unit coverage for end-to-end command wiring and payload contract behavior (`tests/unit/test_cli_commands.py`).
+- Documented CLI command surface and usage examples (`docs/execution/CLI.md`).
