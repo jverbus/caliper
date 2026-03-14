@@ -4,7 +4,7 @@ from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,7 +15,7 @@ class Profile(StrEnum):
 
 
 class CaliperSettings(BaseSettings):
-    """Runtime settings shared by embedded and service modes."""
+    """Profile-aware runtime settings for embedded/service/shared deployments."""
 
     model_config = SettingsConfigDict(
         env_prefix="CALIPER_",
@@ -26,29 +26,59 @@ class CaliperSettings(BaseSettings):
     )
 
     profile: Profile = Profile.EMBEDDED
-    db_url: str | None = None
+
+    # Shared paths
     data_dir: Path = Path("./data")
     reports_dir: Path = Path("./reports")
     exports_dir: Path = Path("./exports")
+
+    # API service
     api_host: str = "0.0.0.0"
     api_port: int = 8000
+
+    # Database selection
+    db_url: str | None = None
+    sqlite_path: Path = Path("./data/caliper.db")
+    postgres_url: str = "postgresql+psycopg://postgres:postgres@localhost:5432/caliper"
+
+    # Shared mode controls
     auth_enabled: bool = False
-    default_workspace_id: str = Field(default="ws_default")
+    default_workspace_id: str = "ws_default"
+    shared_api_token: SecretStr | None = None
 
     def resolved_db_url(self) -> str:
+        """Resolve backend URL based on explicit override and active profile."""
         if self.db_url:
             return self.db_url
         if self.profile is Profile.EMBEDDED:
-            return "sqlite:///./data/caliper.db"
-        return "postgresql+psycopg://postgres:postgres@localhost:5432/caliper"
+            return f"sqlite:///{self.sqlite_path.as_posix()}"
+        return self.postgres_url
+
+    def with_profile_defaults(self) -> CaliperSettings:
+        """Return a settings copy with profile defaults normalized."""
+        updates: dict[str, object] = {}
+
+        if self.profile is Profile.EMBEDDED:
+            updates["auth_enabled"] = False
+        elif self.profile is Profile.SERVICE:
+            updates["auth_enabled"] = bool(self.auth_enabled)
+        elif self.profile is Profile.SHARED:
+            updates["auth_enabled"] = True
+
+        return self.model_copy(update=updates)
+
+    def ensure_runtime_dirs(self) -> None:
+        """Create local artifact directories for embedded/service runs."""
+        for path in (self.data_dir, self.reports_dir, self.exports_dir):
+            path.mkdir(parents=True, exist_ok=True)
 
 
 def load_settings(*, use_cache: bool = True) -> CaliperSettings:
     if use_cache:
         return _cached_settings()
-    return CaliperSettings()
+    return CaliperSettings().with_profile_defaults()
 
 
 @lru_cache(maxsize=1)
 def _cached_settings() -> CaliperSettings:
-    return CaliperSettings()
+    return CaliperSettings().with_profile_defaults()
