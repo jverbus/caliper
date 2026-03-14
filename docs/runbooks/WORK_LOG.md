@@ -45,3 +45,9 @@
 - Added event bus abstractions with projection hook support (`packages/py-caliper-events/src/caliper_events/bus.py`, `packages/py-caliper-events/src/caliper_events/__init__.py`).
 - Added SQLite integration coverage for event append/replay/idempotency and bus behavior tests (`tests/integration/test_event_ledger_sqlite.py`, `tests/unit/test_event_bus.py`).
 - Documented event ledger + bus behavior (`docs/execution/EVENT_LEDGER.md`).
+- CI for PR #8 passed and chunk **P1-004 Event ledger and event bus** was merged (`7b725b1`).
+- Started chunk **P1-005 Projection rebuild support**.
+- Added projection rebuild runner with deterministic replay-based aggregate recomputation (`packages/py-caliper-events/src/caliper_events/projections.py`).
+- Added projection aggregate refresh + rebuild audit persistence on SQL repositories (`packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`).
+- Added integration coverage for rebuild consistency and audit records (`tests/integration/test_projection_rebuild_sqlite.py`).
+- Documented projection rebuild behavior and API surface (`docs/execution/PROJECTION_REBUILD.md`).

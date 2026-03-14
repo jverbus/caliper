@@ -165,3 +165,15 @@ class ProjectionMetricRow(Base):
             unique=True,
         ),
     )
+
+
+class ProjectionRebuildAuditRow(Base):
+    __tablename__ = "projection_rebuild_audit"
+
+    rebuild_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(String(128), index=True)
+    job_id: Mapped[str] = mapped_column(String(64), index=True)
+    rebuilt_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    event_count: Mapped[int] = mapped_column(Integer)
+    start_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    end_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

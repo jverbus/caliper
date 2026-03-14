@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
+from uuid import uuid4
 
 from caliper_core.events import EventEnvelope
 from caliper_core.interfaces import (
@@ -14,7 +15,7 @@ from caliper_core.interfaces import (
     OutcomeRepository,
 )
 from caliper_core.models import Arm, AssignResult, ExposureCreate, Job, JobPatch, OutcomeCreate
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
 from caliper_storage.sqlalchemy_models import (
@@ -24,6 +25,8 @@ from caliper_storage.sqlalchemy_models import (
     ExposureRow,
     JobRow,
     OutcomeRow,
+    ProjectionMetricRow,
+    ProjectionRebuildAuditRow,
 )
 
 SessionFactory = Callable[[], Session]
@@ -261,6 +264,84 @@ class SQLRepository(
         with self._session() as session:
             rows = session.scalars(statement).all()
             return [self._row_to_event(row) for row in rows]
+
+    def replace_projection_metrics(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        metrics: dict[str, dict[str, int]],
+    ) -> None:
+        with self._session() as session:
+            session.execute(
+                delete(ProjectionMetricRow).where(
+                    ProjectionMetricRow.workspace_id == workspace_id,
+                    ProjectionMetricRow.job_id == job_id,
+                )
+            )
+            for arm_id, counts in metrics.items():
+                session.add(
+                    ProjectionMetricRow(
+                        workspace_id=workspace_id,
+                        job_id=job_id,
+                        arm_id=arm_id,
+                        assignments=counts.get("assignments", 0),
+                        exposures=counts.get("exposures", 0),
+                        outcomes=counts.get("outcomes", 0),
+                    )
+                )
+
+    def list_projection_metrics(
+        self, *, workspace_id: str, job_id: str
+    ) -> list[ProjectionMetricRow]:
+        statement = (
+            select(ProjectionMetricRow)
+            .where(
+                ProjectionMetricRow.workspace_id == workspace_id,
+                ProjectionMetricRow.job_id == job_id,
+            )
+            .order_by(ProjectionMetricRow.arm_id.asc())
+        )
+        with self._session() as session:
+            return list(session.scalars(statement).all())
+
+    def record_projection_rebuild(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        event_count: int,
+        start: datetime | None,
+        end: datetime | None,
+    ) -> str:
+        rebuild_id = f"prj_{uuid4().hex[:12]}"
+        with self._session() as session:
+            session.add(
+                ProjectionRebuildAuditRow(
+                    rebuild_id=rebuild_id,
+                    workspace_id=workspace_id,
+                    job_id=job_id,
+                    rebuilt_at=datetime.now(tz=UTC),
+                    event_count=event_count,
+                    start_timestamp=start,
+                    end_timestamp=end,
+                )
+            )
+        return rebuild_id
+
+    def list_projection_rebuild_audits(
+        self, *, workspace_id: str, job_id: str
+    ) -> list[ProjectionRebuildAuditRow]:
+        statement = (
+            select(ProjectionRebuildAuditRow)
+            .where(
+                ProjectionRebuildAuditRow.workspace_id == workspace_id,
+                ProjectionRebuildAuditRow.job_id == job_id,
+            )
+            .order_by(ProjectionRebuildAuditRow.rebuilt_at.desc())
+        )
+        with self._session() as session:
+            return list(session.scalars(statement).all())
 
     def _row_to_job(self, row: JobRow | None) -> Job | None:
         if row is None:
