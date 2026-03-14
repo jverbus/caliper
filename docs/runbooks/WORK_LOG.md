@@ -254,3 +254,8 @@
 - Added unit coverage for replay export integrity and scaffold summary behavior (`tests/unit/test_replay_export.py`).
 - Documented replay export behavior and acceptance mapping (`docs/execution/REPLAY_EXPORT.md`).
 - Opened PR #44 for P9-003 (`chunk/p9-003-replay-export-ope-scaffold`).
+- CI for PR #44 passed and chunk **P9-003 Replay export and OPE scaffold** was merged (`483da94`).
+- Started chunk **P9-004 Contextual promotion gate scaffold**.
+- Added contextual promotion gate scaffold with a non-live gate check endpoint and activation/promotion guardrails that block contextual runtime snapshots until required checks pass (`apps/api/main.py`).
+- Added integration coverage for contextual gate blocked/pass flows, including required shadow-evaluation evidence prior to contextual activation (`tests/integration/test_api_policy_snapshots.py`).
+- Documented contextual promotion gate behavior, gate contract, and acceptance mapping (`docs/execution/CONTEXTUAL_PROMOTION_GATE_SCAFFOLD.md`).

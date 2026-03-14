@@ -120,6 +120,44 @@ def _assign_request_hash(payload: AssignRequest) -> str:
     return _request_hash(payload)
 
 
+def _is_contextual_runtime_snapshot(snapshot: PolicySnapshot) -> bool:
+    runtime = snapshot.payload.get("runtime")
+    return runtime == "contextual" or bool(snapshot.payload.get("requires_contextual_gate"))
+
+
+def _contextual_gate_failures(
+    *,
+    repository: SQLRepository,
+    snapshot: PolicySnapshot,
+) -> list[str]:
+    if not _is_contextual_runtime_snapshot(snapshot):
+        return []
+
+    failures: list[str] = []
+    gate = snapshot.payload.get("contextual_gate")
+    if not isinstance(gate, dict):
+        return ["contextual_gate payload is required for contextual runtime snapshots"]
+
+    required_true = (
+        "shadow_mode_validated",
+        "ope_backtest_validated",
+        "manual_review_approved",
+    )
+    for key in required_true:
+        if gate.get(key) is not True:
+            failures.append(f"contextual_gate.{key} must be true")
+
+    if gate.get("context_schema_version") in (None, ""):
+        failures.append("contextual_gate.context_schema_version is required")
+
+    audits = repository.list_audit(workspace_id=snapshot.workspace_id, job_id=snapshot.job_id)
+    actions = {record.action for record in audits}
+    if "decision.shadow_evaluated" not in actions:
+        failures.append("at least one shadow evaluation is required before contextual activation")
+
+    return failures
+
+
 def _resolve_effective_job(
     *,
     repository: SQLRepository,
@@ -398,6 +436,56 @@ def create_app() -> FastAPI:
             )
         return repository.list_snapshots(workspace_id, job_id)
 
+    @app.get(
+        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/contextual-gate",
+        dependencies=[Depends(require_api_token)],
+    )
+    def check_contextual_promotion_gate(
+        job_id: str,
+        snapshot_id: str,
+        workspace_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> dict[str, object]:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        snapshots = repository.list_snapshots(workspace_id, job_id)
+        snapshot = next((item for item in snapshots if item.snapshot_id == snapshot_id), None)
+        if snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot '{snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        failures = _contextual_gate_failures(repository=repository, snapshot=snapshot)
+        passed = len(failures) == 0
+        repository.append_audit(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            action="policy.snapshot.contextual_gate.checked",
+            metadata={
+                "snapshot_id": snapshot_id,
+                "passed": passed,
+                "failures": failures,
+            },
+        )
+
+        return {
+            "snapshot_id": snapshot_id,
+            "is_contextual_runtime": _is_contextual_runtime_snapshot(snapshot),
+            "passed": passed,
+            "failures": failures,
+        }
+
     def _activate_policy_snapshot(
         *,
         job_id: str,
@@ -405,6 +493,45 @@ def create_app() -> FastAPI:
         payload: PolicySnapshotActivateRequest,
         repository: SQLRepository,
     ) -> PolicySnapshot:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if payload.workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        snapshots = repository.list_snapshots(payload.workspace_id, job_id)
+        snapshot = next((item for item in snapshots if item.snapshot_id == snapshot_id), None)
+        if snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot '{snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        failures = _contextual_gate_failures(repository=repository, snapshot=snapshot)
+        if failures:
+            repository.append_audit(
+                workspace_id=payload.workspace_id,
+                job_id=job_id,
+                action="policy.snapshot.contextual_gate.blocked",
+                metadata={
+                    "snapshot_id": snapshot_id,
+                    "failures": failures,
+                },
+            )
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail={
+                    "message": "Contextual promotion gate checks failed.",
+                    "failures": failures,
+                },
+            )
+
         activated = repository.activate_snapshot(
             workspace_id=payload.workspace_id,
             job_id=job_id,
@@ -414,6 +541,16 @@ def create_app() -> FastAPI:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=f"Snapshot '{snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        if _is_contextual_runtime_snapshot(snapshot):
+            repository.append_audit(
+                workspace_id=payload.workspace_id,
+                job_id=job_id,
+                action="policy.snapshot.contextual_gate.passed",
+                metadata={
+                    "snapshot_id": snapshot_id,
+                },
             )
 
         repository.append(
