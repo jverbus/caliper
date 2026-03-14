@@ -1,0 +1,39 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-json
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.24.2
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check (python)
+        entry: uv run ruff check --fix
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format (python)
+        entry: uv run ruff format
+        language: system
+        types: [python]
+      - id: mypy-pre-push
+        name: mypy (pre-push)
+        entry: uv run mypy packages apps tests
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
+      - id: ts-typecheck-pre-push
+        name: TypeScript typecheck (pre-push)
+        entry: pnpm typecheck
+        language: system
+        pass_filenames: false
+        stages: [pre-push]
