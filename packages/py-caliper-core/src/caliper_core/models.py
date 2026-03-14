@@ -44,6 +44,12 @@ class ArmState(StrEnum):
     RETIRED = "retired"
 
 
+class ArmLifecycleAction(StrEnum):
+    HOLD = "hold"
+    RETIRE = "retire"
+    RESUME = "resume"
+
+
 class PolicyFamily(StrEnum):
     FIXED_SPLIT = "fixed_split"
     EPSILON_GREEDY = "epsilon_greedy"
@@ -148,6 +154,23 @@ class Arm(ArmInput):
     state: ArmState = ArmState.ACTIVE
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
+
+
+class ArmBulkRegisterRequest(BaseModel):
+    workspace_id: str
+    arms: list[ArmInput] = Field(default_factory=list)
+
+
+class ArmBulkRegisterResponse(BaseModel):
+    workspace_id: str
+    job_id: str
+    registered_count: int
+    arms: list[Arm]
+
+
+class ArmLifecycleRequest(BaseModel):
+    workspace_id: str
+    action: ArmLifecycleAction
 
 
 class DecisionDiagnostics(BaseModel):

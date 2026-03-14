@@ -6,6 +6,7 @@ from typing import Protocol, runtime_checkable
 from caliper_core.events import EventEnvelope
 from caliper_core.models import (
     Arm,
+    ArmState,
     AssignResult,
     ExposureCreate,
     GuardrailEvent,
@@ -29,7 +30,18 @@ class JobRepository(Protocol):
 class ArmRepository(Protocol):
     def upsert_arm(self, arm: Arm) -> Arm: ...
 
+    def get_arm(self, arm_id: str) -> Arm | None: ...
+
     def list_arms(self, workspace_id: str, job_id: str) -> list[Arm]: ...
+
+    def set_arm_state(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        arm_id: str,
+        state: ArmState,
+    ) -> Arm | None: ...
 
 
 @runtime_checkable
