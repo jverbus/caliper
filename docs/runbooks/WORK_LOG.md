@@ -39,3 +39,9 @@
 - Expanded Postgres integration coverage to validate repository parity and service-profile initialization against Postgres (`tests/integration/test_storage_postgres.py`).
 - Added service-profile Docker Compose stack for local Postgres + API startup validation (`deploy/compose/docker-compose.service.yml`).
 - Updated storage execution documentation for Postgres backend and migration baseline (`docs/execution/STORAGE_BACKEND.md`).
+- Started chunk **P1-004 Event ledger and event bus**.
+- Implemented `EventLedger` methods on SQL repositories with append-only event persistence and time-window replay (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added idempotent duplicate handling for ledger appends scoped by workspace/job/event_type/idempotency key.
+- Added event bus abstractions with projection hook support (`packages/py-caliper-events/src/caliper_events/bus.py`, `packages/py-caliper-events/src/caliper_events/__init__.py`).
+- Added SQLite integration coverage for event append/replay/idempotency and bus behavior tests (`tests/integration/test_event_ledger_sqlite.py`, `tests/unit/test_event_bus.py`).
+- Documented event ledger + bus behavior (`docs/execution/EVENT_LEDGER.md`).
