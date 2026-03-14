@@ -30,6 +30,7 @@ from caliper_core.models import (
     JobPatch,
     JobStateTransitionRequest,
     JobStatus,
+    OutcomeCreate,
 )
 from caliper_policies.engine import AssignmentEngine, AssignmentError
 from caliper_storage import SQLRepository
@@ -516,6 +517,94 @@ def create_app() -> FastAPI:
             },
         )
         return exposure
+
+    @app.post(
+        "/v1/outcomes",
+        dependencies=[Depends(require_api_token)],
+        response_model=OutcomeCreate,
+    )
+    def create_outcome(
+        payload: OutcomeCreate,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> OutcomeCreate:
+        endpoint = "/v1/outcomes"
+        request_hash = _request_hash(payload)
+        idempotency_key = request_hash
+
+        cached = repository.get_idempotent_response(
+            workspace_id=payload.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+        )
+        if cached is not None:
+            _, cached_response = cached
+            return OutcomeCreate.model_validate(cached_response)
+
+        job = repository.get_job(payload.job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{payload.job_id}' not found.",
+            )
+        if payload.workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        decision = repository.get_decision(payload.decision_id)
+        if decision is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Decision '{payload.decision_id}' not found.",
+            )
+        if (
+            decision.workspace_id != payload.workspace_id
+            or decision.job_id != payload.job_id
+            or decision.unit_id != payload.unit_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Decision context does not match workspace_id/job_id/unit_id.",
+            )
+
+        outcome = repository.create_outcome(payload)
+        repository.append(
+            EventEnvelope(
+                workspace_id=outcome.workspace_id,
+                job_id=outcome.job_id,
+                event_type="outcome.observed",
+                entity_id=outcome.decision_id,
+                idempotency_key=idempotency_key,
+                payload={
+                    "workspace_id": outcome.workspace_id,
+                    "job_id": outcome.job_id,
+                    "decision_id": outcome.decision_id,
+                    "unit_id": outcome.unit_id,
+                    "arm_id": decision.arm_id,
+                    "events": [event.model_dump(mode="json") for event in outcome.events],
+                    "attribution_window": outcome.attribution_window.model_dump(mode="json"),
+                    "metadata": outcome.metadata,
+                },
+            )
+        )
+        repository.save_idempotent_response(
+            workspace_id=outcome.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            response=outcome.model_dump(mode="json"),
+        )
+        repository.append_audit(
+            workspace_id=outcome.workspace_id,
+            job_id=outcome.job_id,
+            action="outcome.observed",
+            metadata={
+                "decision_id": outcome.decision_id,
+                "event_count": len(outcome.events),
+            },
+        )
+        return outcome
 
     @app.post(
         "/v1/jobs/{job_id}/arms/{arm_id}:lifecycle",
