@@ -202,3 +202,13 @@ class ProjectionRebuildAuditRow(Base):
     event_count: Mapped[int] = mapped_column(Integer)
     start_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     end_timestamp: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ReportRunRow(Base):
+    __tablename__ = "report_runs"
+
+    report_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    workspace_id: Mapped[str] = mapped_column(String(128), index=True)
+    job_id: Mapped[str] = mapped_column(String(64), index=True)
+    generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSON)

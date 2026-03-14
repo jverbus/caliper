@@ -14,6 +14,7 @@ from caliper_core.interfaces import (
     ExposureRepository,
     JobRepository,
     OutcomeRepository,
+    ReportRepository,
 )
 from caliper_core.models import (
     ApprovalState,
@@ -26,6 +27,7 @@ from caliper_core.models import (
     JobPatch,
     JobStatus,
     OutcomeCreate,
+    ReportPayload,
 )
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -36,11 +38,13 @@ from caliper_storage.sqlalchemy_models import (
     DecisionRow,
     EventRow,
     ExposureRow,
+    GuardrailEventRow,
     IdempotencyKeyRow,
     JobRow,
     OutcomeRow,
     ProjectionMetricRow,
     ProjectionRebuildAuditRow,
+    ReportRunRow,
 )
 
 SessionFactory = Callable[[], Session]
@@ -54,6 +58,7 @@ class SQLRepository(
     OutcomeRepository,
     EventLedger,
     AuditRepository,
+    ReportRepository,
 ):
     """SQLAlchemy-backed repository implementation for core domain models."""
 
@@ -261,6 +266,18 @@ class SQLRepository(
             row = session.get(DecisionRow, decision_id)
             return self._row_to_decision(row)
 
+    def list_decisions(self, workspace_id: str, job_id: str) -> list[AssignResult]:
+        statement = (
+            select(DecisionRow)
+            .where(DecisionRow.workspace_id == workspace_id, DecisionRow.job_id == job_id)
+            .order_by(DecisionRow.timestamp.asc(), DecisionRow.decision_id.asc())
+        )
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [
+                decision for row in rows if (decision := self._row_to_decision(row)) is not None
+            ]
+
     def get_idempotent_response(
         self,
         *,
@@ -356,6 +373,53 @@ class SQLRepository(
         with self._session() as session:
             rows = session.scalars(statement).all()
             return [self._row_to_outcome(row) for row in rows]
+
+    def list_guardrail_events(self, workspace_id: str, job_id: str) -> list[dict[str, object]]:
+        statement = (
+            select(GuardrailEventRow)
+            .where(
+                GuardrailEventRow.workspace_id == workspace_id, GuardrailEventRow.job_id == job_id
+            )
+            .order_by(GuardrailEventRow.timestamp.asc(), GuardrailEventRow.guardrail_event_id.asc())
+        )
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [
+                {
+                    "guardrail_event_id": row.guardrail_event_id,
+                    "metric": row.metric,
+                    "status": row.status,
+                    "action": row.action,
+                    "timestamp": row.timestamp.isoformat(),
+                    "metadata": row.metadata_json,
+                }
+                for row in rows
+            ]
+
+    def save_report(self, report: ReportPayload) -> ReportPayload:
+        with self._session() as session:
+            session.add(
+                ReportRunRow(
+                    report_id=report.report_id,
+                    workspace_id=report.workspace_id,
+                    job_id=report.job_id,
+                    generated_at=report.generated_at,
+                    payload_json=report.model_dump(mode="json"),
+                )
+            )
+        return report
+
+    def get_latest_report(self, *, workspace_id: str, job_id: str) -> ReportPayload | None:
+        statement = (
+            select(ReportRunRow)
+            .where(ReportRunRow.workspace_id == workspace_id, ReportRunRow.job_id == job_id)
+            .order_by(ReportRunRow.generated_at.desc(), ReportRunRow.report_id.desc())
+        )
+        with self._session() as session:
+            row = session.scalars(statement).first()
+            if row is None:
+                return None
+            return ReportPayload.model_validate(row.payload_json)
 
     def append(self, event: EventEnvelope) -> EventEnvelope:
         with self._session() as session:
