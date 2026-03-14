@@ -15,7 +15,15 @@ from caliper_core.interfaces import (
     JobRepository,
     OutcomeRepository,
 )
-from caliper_core.models import Arm, AssignResult, ExposureCreate, Job, JobPatch, OutcomeCreate
+from caliper_core.models import (
+    Arm,
+    ArmState,
+    AssignResult,
+    ExposureCreate,
+    Job,
+    JobPatch,
+    OutcomeCreate,
+)
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
@@ -143,6 +151,8 @@ class SQLRepository(
                     updated_at=arm.updated_at,
                 )
             else:
+                row.workspace_id = arm.workspace_id
+                row.job_id = arm.job_id
                 row.name = arm.name
                 row.arm_type = arm.arm_type.value
                 row.payload_ref = arm.payload_ref
@@ -153,6 +163,13 @@ class SQLRepository(
             session.add(row)
         return arm
 
+    def get_arm(self, arm_id: str) -> Arm | None:
+        with self._session() as session:
+            row = session.get(ArmRow, arm_id)
+            if row is None:
+                return None
+            return self._row_to_arm(row)
+
     def list_arms(self, workspace_id: str, job_id: str) -> list[Arm]:
         statement = (
             select(ArmRow)
@@ -162,6 +179,24 @@ class SQLRepository(
         with self._session() as session:
             rows = session.scalars(statement).all()
             return [self._row_to_arm(row) for row in rows]
+
+    def set_arm_state(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        arm_id: str,
+        state: ArmState,
+    ) -> Arm | None:
+        with self._session() as session:
+            row = session.get(ArmRow, arm_id)
+            if row is None or row.workspace_id != workspace_id or row.job_id != job_id:
+                return None
+            row.state = state.value
+            row.updated_at = datetime.now(tz=UTC)
+            session.add(row)
+            session.flush()
+            return self._row_to_arm(row)
 
     def create_decision(self, decision: AssignResult) -> AssignResult:
         row = DecisionRow(

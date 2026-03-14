@@ -63,3 +63,10 @@
 - Extended SQL repository with `append_audit` support and wired job write endpoints to emit `job.create`/`job.update` audit records (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added integration coverage for job CRUD contract behavior, write-audit persistence, and missing-job 404 handling (`tests/integration/test_api_job_crud.py`).
 - Documented Job CRUD endpoint and audit behavior in `docs/execution/JOB_CRUD.md`.
+- CI for PR #11 passed and chunk **P2-002 Job CRUD** was merged (`36799ee`).
+- Started chunk **P2-003 Arm bulk registration and lifecycle**.
+- Added batch arm registration endpoint, arm listing endpoint, and lifecycle transition endpoint for hold/retire/resume (`apps/api/main.py`).
+- Extended core models/interfaces for arm bulk register and lifecycle request/response contracts (`packages/py-caliper-core/src/caliper_core/models.py`, `packages/py-caliper-core/src/caliper_core/interfaces.py`).
+- Expanded SQL repository arm support with scoped state transitions and cross-job upsert correctness for arm identifiers (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added integration coverage for 120-arm registration, lifecycle transitions, audit trail, and workspace/missing-entity validation (`tests/integration/test_api_arm_lifecycle.py`).
+- Documented arm registration and lifecycle API behavior (`docs/execution/ARM_BULK_REGISTRATION.md`).
