@@ -201,3 +201,8 @@
 - Added `EmailTranchePlanner` orchestration hooks for per-tranche active-arm refresh and sendability checks plus deterministic blocked planning errors when guardrails cap/pause (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
 - Added tranche reallocation unit coverage for per-tranche candidate refresh and blocked paused/no-active-arm flows (`tests/unit/test_email_adapter.py`).
 - Documented tranche reallocation loop and guardrail/policy-update integration pattern (`docs/execution/TRANCHE_REALLOCATION.md`).
+- CI for PR #36 passed and chunk **P7-003 Tranche reallocation** was merged (`034c712`).
+- Started chunk **P7-004 Email demo**.
+- Replaced email demo scaffold with embedded/service end-to-end tranche simulation including delivery dispatch, delayed webhook outcomes, and worker-driven guardrail evaluation between tranches (`examples/email_demo/demo.py`).
+- Added integration coverage for embedded + service email demo flows validating guardrail behavior and tranche reallocation (`tests/integration/test_email_demo.py`).
+- Added email demo execution doc + acceptance mapping and generated demo report fixtures for embedded/service (`docs/execution/EMAIL_DEMO.md`, `docs/fixtures/email_demo/embedded/*`, `docs/fixtures/email_demo/service/*`).

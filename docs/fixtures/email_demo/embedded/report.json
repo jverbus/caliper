@@ -1,0 +1,88 @@
+{
+  "report_id": "rpt_c883f1441338",
+  "workspace_id": "ws-email-demo",
+  "job_id": "job_3988afe71995",
+  "generated_at": "2026-03-14T20:36:50.819439Z",
+  "leaders": [
+    {
+      "arm_id": "subject-a",
+      "assignments": 8,
+      "exposures": 10,
+      "outcomes": 24,
+      "avg_reward": 1.0333333333333334,
+      "assignment_share": 0.8
+    },
+    {
+      "arm_id": "subject-b",
+      "assignments": 2,
+      "exposures": 10,
+      "outcomes": 4,
+      "avg_reward": -0.35,
+      "assignment_share": 0.2
+    }
+  ],
+  "traffic_shifts": [
+    "No meaningful traffic shift detected between early and late windows."
+  ],
+  "guardrails": [
+    {
+      "guardrail_event_id": "gr_71354e3ae4a1",
+      "metric": "email_unsubscribe",
+      "status": "breach",
+      "action": "cap",
+      "timestamp": "2026-03-14T20:36:50.796183",
+      "metadata": {
+        "operator": ">",
+        "threshold": 0.01,
+        "observed": 0.0625,
+        "target_arm_id": "subject-b"
+      }
+    },
+    {
+      "guardrail_event_id": "gr_7daa2f89021b",
+      "metric": "email_unsubscribe",
+      "status": "breach",
+      "action": "cap",
+      "timestamp": "2026-03-14T20:36:50.814771",
+      "metadata": {
+        "operator": ">",
+        "threshold": 0.01,
+        "observed": 0.03571428571428571,
+        "target_arm_id": "subject-b"
+      }
+    }
+  ],
+  "segment_findings": [
+    {
+      "segment": "all",
+      "leader_arm_id": null,
+      "observations": 10
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Promote current leader",
+      "detail": "Arm 'subject-a' has the strongest observed average reward."
+    },
+    {
+      "title": "Review guardrail events",
+      "detail": "2 guardrail events were recorded; validate policy safety posture."
+    }
+  ],
+  "markdown": "# Caliper report for Email demo (embedded)\n\n## Leaders\n- `subject-a` avg_reward=1.0333 share=80.00%\n- `subject-b` avg_reward=-0.3500 share=20.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- email_unsubscribe: breach\n- email_unsubscribe: breach\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'subject-a' has the strongest observed average reward.\n- **Review guardrail events:** 2 guardrail events were recorded; validate policy safety posture.",
+  "html": "<html><body><pre># Caliper report for Email demo (embedded)\n\n## Leaders\n- `subject-a` avg_reward=1.0333 share=80.00%\n- `subject-b` avg_reward=-0.3500 share=20.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- email_unsubscribe: breach\n- email_unsubscribe: breach\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'subject-a' has the strongest observed average reward.\n- **Review guardrail events:** 2 guardrail events were recorded; validate policy safety posture.</pre></body></html>",
+  "assignment_counts": {
+    "subject-a": 8,
+    "subject-b": 2
+  },
+  "active_arms_by_tranche": {
+    "tranche-1": [
+      "subject-a",
+      "subject-b"
+    ],
+    "tranche-2": [
+      "subject-a"
+    ]
+  },
+  "delayed_outcome_decisions": 10
+}
