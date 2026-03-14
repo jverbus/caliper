@@ -3,8 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from caliper_core.models import Job, JobStatus
+from caliper_core.models import ApprovalState, ArmState, GuardrailAction, Job, JobStatus
 from caliper_reports import ReportGenerator
+from caliper_reward import GuardrailEngine
 from caliper_reward.engine import RewardEngine
 from caliper_storage import SQLRepository
 from caliper_storage.sqlalchemy_models import JobRow, ScheduledTaskRow
@@ -24,6 +25,7 @@ class WorkerLoop:
         self._repository = SQLRepository(session_factory)
         self._report_generator = ReportGenerator()
         self._reward_engine = RewardEngine()
+        self._guardrail_engine = GuardrailEngine()
 
     def run_once(self, *, now: datetime | None = None, max_due_tasks: int = 25) -> WorkerRunResult:
         run_at = _as_aware_utc(now)
@@ -152,6 +154,70 @@ class WorkerLoop:
             "worker.policy.updated",
             {"record_count": len(dataset)},
         )
+
+        evaluations = self._guardrail_engine.evaluate(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            guardrail_spec=job.guardrail_spec,
+            records=dataset,
+        )
+
+        for evaluation in evaluations:
+            self._repository.create_guardrail_event(evaluation.event)
+            self._apply_guardrail_action(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                action=evaluation.event.action,
+                target_arm_id=evaluation.target_arm_id,
+            )
+            self._repository.append_audit(
+                workspace_id,
+                job_id,
+                "worker.guardrail.action",
+                {
+                    "guardrail_event_id": evaluation.event.guardrail_event_id,
+                    "metric": evaluation.event.metric,
+                    "action": evaluation.event.action.value if evaluation.event.action else None,
+                    "target_arm_id": evaluation.target_arm_id,
+                    "observed": evaluation.event.metadata.get("observed"),
+                },
+            )
+
+    def _apply_guardrail_action(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        action: GuardrailAction | None,
+        target_arm_id: str | None,
+    ) -> None:
+        if action is None or action == GuardrailAction.ANNOTATE:
+            return
+
+        if action == GuardrailAction.PAUSE:
+            self._repository.set_job_state(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                status=JobStatus.PAUSED,
+            )
+            return
+
+        if action == GuardrailAction.REQUIRE_MANUAL_RESUME:
+            self._repository.set_job_state(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                status=JobStatus.PAUSED,
+                approval_state=ApprovalState.PENDING,
+            )
+            return
+
+        if action in {GuardrailAction.CAP, GuardrailAction.DEMOTE} and target_arm_id is not None:
+            self._repository.set_arm_state(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                arm_id=target_arm_id,
+                state=ArmState.HELD_OUT,
+            )
 
     def _list_active_jobs(self) -> list[Job]:
         with self._session_factory() as session:
