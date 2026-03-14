@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import math
+import random
 from dataclasses import dataclass
 
 from caliper_core.models import (
@@ -30,7 +31,11 @@ class AssignmentEngine:
 
     def assign(self, *, job: Job, request: AssignRequest, arms: list[Arm]) -> AssignResult:
         eligible_arms = self._eligible_arms(job=job, request=request, arms=arms)
-        weighted, reason, fallback_used = self._policy_weights(job=job, arm_ids=eligible_arms)
+        weighted, reason, fallback_used = self._policy_weights(
+            job=job,
+            request=request,
+            arm_ids=eligible_arms,
+        )
         draw = self._deterministic_draw(
             job_id=job.job_id,
             unit_id=request.unit_id,
@@ -76,6 +81,7 @@ class AssignmentEngine:
         self,
         *,
         job: Job,
+        request: AssignRequest,
         arm_ids: list[str],
     ) -> tuple[list[WeightedArm], str, bool]:
         if job.policy_spec.policy_family is PolicyFamily.EPSILON_GREEDY:
@@ -85,6 +91,14 @@ class AssignmentEngine:
         if job.policy_spec.policy_family is PolicyFamily.UCB1:
             weighted, fallback_used = self._ucb1_weights(job=job, arm_ids=arm_ids)
             return weighted, "ucb1_policy", fallback_used
+
+        if job.policy_spec.policy_family is PolicyFamily.THOMPSON_SAMPLING:
+            weighted, fallback_used = self._thompson_sampling_weights(
+                job=job,
+                request=request,
+                arm_ids=arm_ids,
+            )
+            return weighted, "thompson_sampling_policy", fallback_used
 
         weighted, fallback_used = self._fixed_split_weights(job=job, arm_ids=arm_ids)
         return weighted, "fixed_split_weighted_draw", fallback_used
@@ -171,6 +185,53 @@ class AssignmentEngine:
         equal = 1.0 / len(arm_ids)
         return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)
 
+    def _thompson_sampling_weights(
+        self,
+        *,
+        job: Job,
+        request: AssignRequest,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], bool]:
+        alpha_raw = job.policy_spec.params.get("alpha")
+        beta_raw = job.policy_spec.params.get("beta")
+
+        alphas = (
+            {arm_id: max(float(alpha_raw.get(arm_id, 1.0)), 1e-6) for arm_id in arm_ids}
+            if isinstance(alpha_raw, dict)
+            else {arm_id: 1.0 for arm_id in arm_ids}
+        )
+        betas = (
+            {arm_id: max(float(beta_raw.get(arm_id, 1.0)), 1e-6) for arm_id in arm_ids}
+            if isinstance(beta_raw, dict)
+            else {arm_id: 1.0 for arm_id in arm_ids}
+        )
+
+        seed_salt = str(job.policy_spec.params.get("seed_salt", ""))
+        seed_material = (
+            f"{job.job_id}:{request.unit_id}:{request.idempotency_key}:{seed_salt}"
+        )
+        samples = {
+            arm_id: self._deterministic_beta_sample(
+                arm_id=arm_id,
+                alpha=alphas[arm_id],
+                beta=betas[arm_id],
+                seed_material=seed_material,
+            )
+            for arm_id in arm_ids
+        }
+        sample_total = sum(samples.values())
+        if sample_total > 0:
+            return (
+                [
+                    WeightedArm(arm_id=arm_id, weight=samples[arm_id] / sample_total)
+                    for arm_id in arm_ids
+                ],
+                False,
+            )
+
+        equal = 1.0 / len(arm_ids)
+        return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)
+
     def _epsilon_greedy_weights(
         self,
         *,
@@ -214,6 +275,18 @@ class AssignmentEngine:
         digest = hashlib.sha256(f"{job_id}:{unit_id}:{idempotency_key}".encode()).digest()
         value = int.from_bytes(digest[:8], byteorder="big", signed=False)
         return value / float(1 << 64)
+
+    def _deterministic_beta_sample(
+        self,
+        *,
+        arm_id: str,
+        alpha: float,
+        beta: float,
+        seed_material: str,
+    ) -> float:
+        digest = hashlib.sha256(f"{seed_material}:{arm_id}".encode()).digest()
+        seed = int.from_bytes(digest[:8], byteorder="big", signed=False)
+        return random.Random(seed).betavariate(alpha, beta)
 
     def _choose(self, *, weighted: list[WeightedArm], draw: float) -> WeightedArm:
         cumulative = 0.0
