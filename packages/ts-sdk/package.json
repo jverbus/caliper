@@ -8,9 +8,10 @@
     "build": "tsc -p tsconfig.json",
     "lint": "tsc -p tsconfig.json --noEmit",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "node --test dist/index.test.js || true"
+    "test": "node --test dist/index.test.js"
   },
   "devDependencies": {
+    "@types/node": "^22.15.21",
     "typescript": "^5.8.3"
   }
 }
