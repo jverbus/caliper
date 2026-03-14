@@ -36,6 +36,7 @@ from caliper_storage.sqlalchemy_models import (
     DecisionRow,
     EventRow,
     ExposureRow,
+    IdempotencyKeyRow,
     JobRow,
     OutcomeRow,
     ProjectionMetricRow,
@@ -259,6 +260,54 @@ class SQLRepository(
         with self._session() as session:
             row = session.get(DecisionRow, decision_id)
             return self._row_to_decision(row)
+
+    def get_idempotent_response(
+        self,
+        *,
+        workspace_id: str,
+        endpoint: str,
+        idempotency_key: str,
+    ) -> tuple[str, dict[str, object]] | None:
+        statement = select(IdempotencyKeyRow).where(
+            IdempotencyKeyRow.workspace_id == workspace_id,
+            IdempotencyKeyRow.endpoint == endpoint,
+            IdempotencyKeyRow.idempotency_key == idempotency_key,
+        )
+        with self._session() as session:
+            row = session.scalar(statement)
+            if row is None:
+                return None
+            return row.request_hash, row.response_json
+
+    def save_idempotent_response(
+        self,
+        *,
+        workspace_id: str,
+        endpoint: str,
+        idempotency_key: str,
+        request_hash: str,
+        response: dict[str, object],
+    ) -> None:
+        with self._session() as session:
+            existing = session.scalar(
+                select(IdempotencyKeyRow).where(
+                    IdempotencyKeyRow.workspace_id == workspace_id,
+                    IdempotencyKeyRow.endpoint == endpoint,
+                    IdempotencyKeyRow.idempotency_key == idempotency_key,
+                )
+            )
+            if existing is not None:
+                return
+            session.add(
+                IdempotencyKeyRow(
+                    workspace_id=workspace_id,
+                    endpoint=endpoint,
+                    idempotency_key=idempotency_key,
+                    request_hash=request_hash,
+                    response_json=response,
+                    created_at=datetime.now(tz=UTC),
+                )
+            )
 
     def create_exposure(self, exposure: ExposureCreate) -> ExposureCreate:
         row = ExposureRow(
