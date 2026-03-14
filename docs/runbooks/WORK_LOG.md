@@ -20,3 +20,10 @@
 - Expanded profile-aware settings with explicit embedded/service/shared behavior and default backend resolution (`packages/py-caliper-core/src/caliper_core/config.py`).
 - Added deployable env examples for each profile (`deploy/env/.env.*.example`) including shared-mode token setting.
 - Added config profile tests for backend resolution/auth defaults/runtime dir creation (`tests/unit/test_config_profiles.py`).
+- CI for PR #4 passed and chunk **P0-004 Config system and profiles** was merged (`733ea58`).
+- Started chunk **P1-001 Domain models and schemas**.
+- Expanded shared domain models with explicit API response and exposure enums (`packages/py-caliper-core/src/caliper_core/models.py`).
+- Added JSON Schema registry/generation helpers for shared schema export (`packages/py-caliper-core/src/caliper_core/schemas.py`).
+- Added unit coverage for required-field validation, enum parsing, and schema generation (`tests/unit/test_domain_models.py`, `tests/unit/test_schema_generation.py`).
+- Documented schema package usage in `docs/execution/SHARED_SCHEMA_PACKAGE.md`.
+- Fixed CI lint blocker on PR #5 by applying Ruff import/order formatting fixes (`packages/py-caliper-core/src/caliper_core/__init__.py`, `tests/unit/test_domain_models.py`).
