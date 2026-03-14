@@ -1,0 +1,36 @@
+services:
+  postgres:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: caliper
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - caliper-postgres-data:/var/lib/postgresql/data
+
+  api:
+    image: ghcr.io/astral-sh/uv:python3.12-bookworm
+    working_dir: /workspace
+    command: ["sh", "-c", "uv sync --group dev && uv run uvicorn apps.api.main:app --host 0.0.0.0 --port 8000"]
+    environment:
+      CALIPER_PROFILE: service
+      CALIPER_POSTGRES_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
+      CALIPER_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../..:/workspace
+
+volumes:
+  caliper-postgres-data:

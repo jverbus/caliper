@@ -20,14 +20,14 @@ from caliper_storage.sqlalchemy_models import ArmRow, DecisionRow, ExposureRow, 
 SessionFactory = Callable[[], Session]
 
 
-class SQLiteRepository(
+class SQLRepository(
     JobRepository,
     ArmRepository,
     DecisionRepository,
     ExposureRepository,
     OutcomeRepository,
 ):
-    """SQLite-backed repository implementation for core domain models."""
+    """SQLAlchemy-backed repository implementation for core domain models."""
 
     def __init__(self, session_factory: SessionFactory) -> None:
         self._session_factory = session_factory
@@ -284,3 +284,11 @@ class SQLiteRepository(
                 "metadata": row.metadata_json,
             }
         )
+
+
+class SQLiteRepository(SQLRepository):
+    """SQLite-specific repository facade backed by SQLRepository."""
+
+
+class PostgresRepository(SQLRepository):
+    """Postgres-specific repository facade backed by SQLRepository."""

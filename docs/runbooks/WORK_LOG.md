@@ -32,3 +32,10 @@
 - Added concrete SQLite repository implementation for job/arm/decision/exposure/outcome persistence (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added SQLite integration persistence roundtrip coverage (`tests/integration/test_storage_sqlite.py`) and storage backend execution doc (`docs/execution/STORAGE_BACKEND.md`).
 - Fixed PR #6 CI typecheck blocker by correcting context-manager typing in SQLite repository sessions and using typed `GuardrailSpec` in integration fixtures (`ece47ca`).
+- CI for PR #6 passed and chunk **P1-002 Storage interfaces and SQLite backend** was merged (`0a24593`).
+- Started chunk **P1-003 Postgres backend**.
+- Added backend-agnostic SQL repository facade plus explicit `PostgresRepository`/`SQLiteRepository` exports (`packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-storage/src/caliper_storage/__init__.py`).
+- Added lightweight migration stamping support and wired `init_db` through migration upgrade (`packages/py-caliper-storage/src/caliper_storage/migrations.py`, `packages/py-caliper-storage/src/caliper_storage/engine.py`).
+- Expanded Postgres integration coverage to validate repository parity and service-profile initialization against Postgres (`tests/integration/test_storage_postgres.py`).
+- Added service-profile Docker Compose stack for local Postgres + API startup validation (`deploy/compose/docker-compose.service.yml`).
+- Updated storage execution documentation for Postgres backend and migration baseline (`docs/execution/STORAGE_BACKEND.md`).
