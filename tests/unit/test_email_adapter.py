@@ -9,14 +9,23 @@ from caliper_adapters import (
     EmailAdapter,
     EmailRecipient,
     EmailSendPlan,
+    EmailWebhookEvent,
+    EmailWebhookType,
 )
-from caliper_core.models import AssignResult, DecisionDiagnostics, ExposureCreate, PolicyFamily
+from caliper_core.models import (
+    AssignResult,
+    DecisionDiagnostics,
+    ExposureCreate,
+    OutcomeCreate,
+    PolicyFamily,
+)
 
 
 class _FakeEmailClient:
     def __init__(self) -> None:
         self.assign_payloads: list[Any] = []
         self.exposures: list[ExposureCreate] = []
+        self.outcomes: list[OutcomeCreate] = []
 
     def assign(self, payload: Any) -> AssignResult:
         self.assign_payloads.append(payload)
@@ -36,6 +45,10 @@ class _FakeEmailClient:
 
     def log_exposure(self, payload: ExposureCreate) -> ExposureCreate:
         self.exposures.append(payload)
+        return payload
+
+    def log_outcome(self, payload: OutcomeCreate) -> OutcomeCreate:
+        self.outcomes.append(payload)
         return payload
 
 
@@ -130,3 +143,88 @@ def test_dispatch_send_plan_logs_exposure_for_delivered_records_only() -> None:
     assert exposure.metadata["surface"] == "email"
     assert exposure.metadata["tranche_id"] == "tranche-2"
     assert exposure.metadata["provider_message_id"] == "msg-u-101"
+
+
+def test_ingest_webhook_maps_event_types_to_outcomes() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(client=client, workspace_id="ws-email", job_id="job-email")
+
+    occurred_at = datetime(2026, 3, 14, 20, 45, tzinfo=UTC)
+    open_outcome = adapter.ingest_webhook(
+        event=EmailWebhookEvent(
+            webhook_event_id="evt-open-1",
+            webhook_type=EmailWebhookType.OPEN,
+            recipient_id="u-501",
+            decision_id="dec-u-501",
+            occurred_at=occurred_at,
+        )
+    )
+    complaint_outcome = adapter.ingest_webhook(
+        event=EmailWebhookEvent(
+            webhook_event_id="evt-complaint-1",
+            webhook_type=EmailWebhookType.COMPLAINT,
+            recipient_id="u-502",
+            decision_id="dec-u-502",
+            occurred_at=occurred_at,
+            metadata={"provider": "simulator"},
+        )
+    )
+
+    assert open_outcome is not None
+    assert open_outcome.events[0].outcome_type == "email_open"
+    assert open_outcome.events[0].timestamp == occurred_at
+
+    assert complaint_outcome is not None
+    assert complaint_outcome.events[0].outcome_type == "email_complaint"
+    assert complaint_outcome.metadata["source"] == "email_webhook"
+    assert complaint_outcome.metadata["webhook_event_id"] == "evt-complaint-1"
+    assert complaint_outcome.metadata["provider"] == "simulator"
+
+
+def test_ingest_webhook_uses_delayed_timestamp_and_custom_attribution_window() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(
+        client=client,
+        workspace_id="ws-email",
+        job_id="job-email",
+        outcome_attribution_window_hours=336,
+    )
+
+    occurred_at = datetime(2026, 3, 10, 8, 15, tzinfo=UTC)
+    outcome = adapter.ingest_webhook(
+        event=EmailWebhookEvent(
+            webhook_event_id="evt-conv-1",
+            webhook_type=EmailWebhookType.CONVERSION,
+            recipient_id="u-601",
+            decision_id="dec-u-601",
+            occurred_at=occurred_at,
+            value=2.0,
+        )
+    )
+
+    assert outcome is not None
+    assert outcome.events[0].outcome_type == "email_conversion"
+    assert outcome.events[0].value == 2.0
+    assert outcome.events[0].timestamp == occurred_at
+    assert outcome.attribution_window.hours == 336
+
+
+def test_ingest_webhook_is_idempotent_by_webhook_event_id() -> None:
+    client = _FakeEmailClient()
+    adapter = EmailAdapter(client=client, workspace_id="ws-email", job_id="job-email")
+
+    event = EmailWebhookEvent(
+        webhook_event_id="evt-click-1",
+        webhook_type=EmailWebhookType.CLICK,
+        recipient_id="u-701",
+        decision_id="dec-u-701",
+        occurred_at=datetime(2026, 3, 14, 21, 0, tzinfo=UTC),
+    )
+
+    first = adapter.ingest_webhook(event=event)
+    second = adapter.ingest_webhook(event=event)
+
+    assert first is not None
+    assert second is None
+    assert len(client.outcomes) == 1
+    assert client.outcomes[0].events[0].outcome_type == "email_click"

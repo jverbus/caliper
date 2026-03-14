@@ -2,15 +2,26 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from typing import Any, Protocol
 
-from caliper_core.models import AssignRequest, AssignResult, ExposureCreate, ExposureType
+from caliper_core.models import (
+    AssignRequest,
+    AssignResult,
+    AttributionWindow,
+    ExposureCreate,
+    ExposureType,
+    OutcomeCreate,
+    OutcomeEvent,
+)
 
 
 class EmailAdapterClient(Protocol):
     def assign(self, payload: AssignRequest) -> AssignResult: ...
 
     def log_exposure(self, payload: ExposureCreate) -> ExposureCreate: ...
+
+    def log_outcome(self, payload: OutcomeCreate) -> OutcomeCreate: ...
 
 
 @dataclass(frozen=True)
@@ -62,6 +73,25 @@ class EmailDeliveryProvider(Protocol):
     def deliver(self, plan: EmailSendPlan) -> DeliveryResult: ...
 
 
+class EmailWebhookType(StrEnum):
+    OPEN = "open"
+    CLICK = "click"
+    CONVERSION = "conversion"
+    UNSUBSCRIBE = "unsubscribe"
+    COMPLAINT = "complaint"
+
+
+@dataclass(frozen=True)
+class EmailWebhookEvent:
+    webhook_event_id: str
+    webhook_type: EmailWebhookType
+    recipient_id: str
+    decision_id: str
+    occurred_at: datetime
+    value: float = 1.0
+    metadata: dict[str, str | int | float | bool] = field(default_factory=dict)
+
+
 class EmailAdapter:
     """Email-facing adapter for tranche assignment and provider handoff."""
 
@@ -71,10 +101,23 @@ class EmailAdapter:
         client: EmailAdapterClient,
         workspace_id: str,
         job_id: str,
+        open_metric: str = "email_open",
+        click_metric: str = "email_click",
+        conversion_metric: str = "email_conversion",
+        unsubscribe_metric: str = "email_unsubscribe",
+        complaint_metric: str = "email_complaint",
+        outcome_attribution_window_hours: int = 168,
     ) -> None:
         self._client = client
         self._workspace_id = workspace_id
         self._job_id = job_id
+        self._open_metric = open_metric
+        self._click_metric = click_metric
+        self._conversion_metric = conversion_metric
+        self._unsubscribe_metric = unsubscribe_metric
+        self._complaint_metric = complaint_metric
+        self._outcome_attribution_window_hours = outcome_attribution_window_hours
+        self._processed_webhook_ids: set[str] = set()
 
     def build_send_plan(
         self,
@@ -155,3 +198,47 @@ class EmailAdapter:
             )
 
         return delivery
+
+    def ingest_webhook(self, *, event: EmailWebhookEvent) -> OutcomeCreate | None:
+        """Map webhook events to Caliper outcomes with duplicate-safe handling."""
+        if event.webhook_event_id in self._processed_webhook_ids:
+            return None
+
+        metric = self._metric_for_webhook(event.webhook_type)
+        outcome = self._client.log_outcome(
+            OutcomeCreate(
+                workspace_id=self._workspace_id,
+                job_id=self._job_id,
+                decision_id=event.decision_id,
+                unit_id=event.recipient_id,
+                events=[
+                    OutcomeEvent(
+                        outcome_type=metric,
+                        value=event.value,
+                        timestamp=event.occurred_at,
+                    )
+                ],
+                attribution_window=AttributionWindow(
+                    hours=self._outcome_attribution_window_hours
+                ),
+                metadata={
+                    "source": "email_webhook",
+                    "surface": "email",
+                    "webhook_event_id": event.webhook_event_id,
+                    "webhook_type": event.webhook_type.value,
+                    **dict(event.metadata),
+                },
+            )
+        )
+        self._processed_webhook_ids.add(event.webhook_event_id)
+        return outcome
+
+    def _metric_for_webhook(self, webhook_type: EmailWebhookType) -> str:
+        metric_map = {
+            EmailWebhookType.OPEN: self._open_metric,
+            EmailWebhookType.CLICK: self._click_metric,
+            EmailWebhookType.CONVERSION: self._conversion_metric,
+            EmailWebhookType.UNSUBSCRIBE: self._unsubscribe_metric,
+            EmailWebhookType.COMPLAINT: self._complaint_metric,
+        }
+        return metric_map[webhook_type]

@@ -190,3 +190,9 @@
 - Added email adapter tranche assignment + send-plan contracts with pluggable provider handoff and delivered-send exposure logging (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
 - Added unit coverage for tranche assignment idempotency-key shaping and provider delivery/exposure behavior (`tests/unit/test_email_adapter.py`).
 - Documented email adapter core API surface and acceptance mapping (`docs/execution/EMAIL_ADAPTER_CORE.md`).
+- CI for PR #34 passed and chunk **P7-001 Email adapter core** was merged (`cfc08ca`).
+- Started chunk **P7-002 Email webhook and outcome ingest**.
+- Added email webhook ingest contracts and event mapping for open/click/conversion/unsubscribe/complaint with delayed event timestamps and configurable attribution window (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
+- Added duplicate-safe webhook handling keyed by `webhook_event_id` and metadata propagation for auditability/guardrail derivation (`packages/py-caliper-adapters/src/caliper_adapters/email.py`).
+- Added unit coverage for webhook metric mapping, delayed outcome timestamps, attribution-window config, and idempotent duplicate dropping (`tests/unit/test_email_adapter.py`).
+- Documented webhook/outcome ingest behavior and acceptance mapping (`docs/execution/EMAIL_WEBHOOK_OUTCOMES.md`).
