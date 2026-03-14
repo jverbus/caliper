@@ -23,6 +23,7 @@ from caliper_core.models import (
     AssignRequest,
     AssignResult,
     AuditRecord,
+    ExposureCreate,
     Job,
     JobCreate,
     JobCreateResponse,
@@ -97,9 +98,17 @@ def _transition_job_state(
     return updated
 
 
-def _assign_request_hash(payload: AssignRequest) -> str:
-    encoded = json.dumps(payload.model_dump(mode="json"), sort_keys=True).encode()
+def _request_hash(payload: object) -> str:
+    if hasattr(payload, "model_dump"):
+        body = payload.model_dump(mode="json")
+    else:
+        body = payload
+    encoded = json.dumps(body, sort_keys=True).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _assign_request_hash(payload: AssignRequest) -> str:
+    return _request_hash(payload)
 
 
 def create_app() -> FastAPI:
@@ -420,6 +429,93 @@ def create_app() -> FastAPI:
             },
         )
         return decision
+
+    @app.post(
+        "/v1/exposures",
+        dependencies=[Depends(require_api_token)],
+        response_model=ExposureCreate,
+    )
+    def create_exposure(
+        payload: ExposureCreate,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> ExposureCreate:
+        endpoint = "/v1/exposures"
+        request_hash = _request_hash(payload)
+        idempotency_key = request_hash
+
+        cached = repository.get_idempotent_response(
+            workspace_id=payload.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+        )
+        if cached is not None:
+            _, cached_response = cached
+            return ExposureCreate.model_validate(cached_response)
+
+        job = repository.get_job(payload.job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{payload.job_id}' not found.",
+            )
+        if payload.workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        decision = repository.get_decision(payload.decision_id)
+        if decision is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Decision '{payload.decision_id}' not found.",
+            )
+        if (
+            decision.workspace_id != payload.workspace_id
+            or decision.job_id != payload.job_id
+            or decision.unit_id != payload.unit_id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Decision context does not match workspace_id/job_id/unit_id.",
+            )
+
+        exposure = repository.create_exposure(payload)
+        repository.append(
+            EventEnvelope(
+                workspace_id=exposure.workspace_id,
+                job_id=exposure.job_id,
+                event_type="decision.exposed",
+                entity_id=exposure.decision_id,
+                idempotency_key=idempotency_key,
+                payload={
+                    "workspace_id": exposure.workspace_id,
+                    "job_id": exposure.job_id,
+                    "decision_id": exposure.decision_id,
+                    "unit_id": exposure.unit_id,
+                    "exposure_type": exposure.exposure_type.value,
+                    "timestamp": exposure.timestamp.isoformat(),
+                    "metadata": exposure.metadata,
+                },
+            )
+        )
+        repository.save_idempotent_response(
+            workspace_id=exposure.workspace_id,
+            endpoint=endpoint,
+            idempotency_key=idempotency_key,
+            request_hash=request_hash,
+            response=exposure.model_dump(mode="json"),
+        )
+        repository.append_audit(
+            workspace_id=exposure.workspace_id,
+            job_id=exposure.job_id,
+            action="decision.exposed",
+            metadata={
+                "decision_id": exposure.decision_id,
+                "exposure_type": exposure.exposure_type.value,
+            },
+        )
+        return exposure
 
     @app.post(
         "/v1/jobs/{job_id}/arms/{arm_id}:lifecycle",
