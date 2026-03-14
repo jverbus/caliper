@@ -26,7 +26,12 @@ make lint
 make typecheck
 make test
 make run-embedded
+make seed-demo-data
 ```
+
+For a full machine setup and service compose workflow, use:
+
+- `docs/execution/PACKAGING_INSTALL_FLOW.md`
 
 ## Local pre-commit guardrails
 
