@@ -77,3 +77,8 @@
 - Added queryable job audit endpoint (`GET /v1/jobs/{job_id}/audit`) and structured audit record model (`apps/api/main.py`, `packages/py-caliper-core/src/caliper_core/models.py`).
 - Added integration coverage for valid/invalid job transitions, non-destructive pause behavior, approval defaults, and audit-query contract (`tests/integration/test_api_job_state_machine.py`).
 - Documented job state-machine and approval behavior (`docs/execution/JOB_STATE_MACHINE.md`).
+- CI for PR #13 passed and chunk **P2-004 Job state machine and approvals** was merged (`4e0d745`).
+- Started chunk **P3-001 Assignment engine interface and fixed split policy**.
+- Implemented assignment engine with deterministic weighted fixed-split selection and eligibility filtering (`packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added unit coverage for candidate subsets, weighted split behavior, and equal-weight fallback (`tests/unit/test_assignment_engine.py`).
+- Documented assignment engine/fixed-split behavior (`docs/execution/ASSIGNMENT_ENGINE.md`).
