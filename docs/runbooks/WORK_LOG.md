@@ -178,3 +178,9 @@
 - Added `WebAdapter` with request-time assignment helper plus explicit render exposure, click, and conversion logging helpers (`packages/py-caliper-adapters/src/caliper_adapters/web.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
 - Added unit coverage for candidate-arm subsets, rendered exposure behavior, and distinct click/conversion outcomes (`tests/unit/test_web_adapter.py`).
 - Documented web adapter API surface and acceptance mapping (`docs/execution/WEB_ADAPTER.md`).
+- CI for PR #32 passed and chunk **P6-002 Web adapter** was merged (`9f4151a`).
+- Started chunk **P6-003 Web demo**.
+- Replaced web demo scaffold with an end-to-end embedded/service runner that creates a web job, registers landing-page arms, runs request-time assignments, logs rendered exposure separately from click/conversion outcomes, and generates reports (`examples/web_demo/demo.py`).
+- Added checked-in web demo report fixtures for embedded and service runs (`docs/fixtures/web_demo/embedded/*`, `docs/fixtures/web_demo/service/*`).
+- Added dedicated web demo execution doc with run instructions and acceptance mapping (`docs/execution/WEB_DEMO.md`).
+- Added integration coverage validating web demo success in both embedded and service mode, including segment findings in generated reports (`tests/integration/test_web_demo.py`).

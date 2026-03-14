@@ -1,0 +1,53 @@
+{
+  "report_id": "rpt_9086bcbb9d4d",
+  "workspace_id": "ws-web-demo",
+  "job_id": "job_cf6efcd51345",
+  "generated_at": "2026-03-14T20:08:54.448358Z",
+  "leaders": [
+    {
+      "arm_id": "landing-a",
+      "assignments": 7,
+      "exposures": 12,
+      "outcomes": 4,
+      "avg_reward": 0.0,
+      "assignment_share": 0.5833333333333334
+    },
+    {
+      "arm_id": "landing-b",
+      "assignments": 5,
+      "exposures": 12,
+      "outcomes": 8,
+      "avg_reward": 0.0,
+      "assignment_share": 0.4166666666666667
+    }
+  ],
+  "traffic_shifts": [
+    "landing-a: -3 assignments in later window",
+    "landing-b: +3 assignments in later window"
+  ],
+  "guardrails": [],
+  "segment_findings": [
+    {
+      "segment": "country=US",
+      "leader_arm_id": null,
+      "observations": 7
+    },
+    {
+      "segment": "device=mobile",
+      "leader_arm_id": null,
+      "observations": 7
+    }
+  ],
+  "recommendations": [
+    {
+      "title": "Promote current leader",
+      "detail": "Arm 'landing-a' has the strongest observed average reward."
+    }
+  ],
+  "markdown": "# Caliper report for Web demo (embedded)\n\n## Leaders\n- `landing-a` avg_reward=0.0000 share=58.33%\n- `landing-b` avg_reward=0.0000 share=41.67%\n\n## Traffic shifts\n- landing-a: -3 assignments in later window\n- landing-b: +3 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- country=US (7 observations)\n- device=mobile (7 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'landing-a' has the strongest observed average reward.",
+  "html": "<html><body><pre># Caliper report for Web demo (embedded)\n\n## Leaders\n- `landing-a` avg_reward=0.0000 share=58.33%\n- `landing-b` avg_reward=0.0000 share=41.67%\n\n## Traffic shifts\n- landing-a: -3 assignments in later window\n- landing-b: +3 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- country=US (7 observations)\n- device=mobile (7 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'landing-a' has the strongest observed average reward.</pre></body></html>",
+  "assignment_counts": {
+    "landing-a": 7,
+    "landing-b": 5
+  }
+}
