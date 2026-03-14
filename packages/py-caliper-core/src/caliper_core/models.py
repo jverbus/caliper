@@ -25,6 +25,13 @@ class JobStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class ApprovalState(StrEnum):
+    NOT_REQUIRED = "not_required"
+    PENDING = "pending"
+    APPROVED = "approved"
+    REJECTED = "rejected"
+
+
 class SurfaceType(StrEnum):
     WORKFLOW = "workflow"
     WEB = "web"
@@ -121,6 +128,7 @@ class JobCreate(BaseModel):
 class Job(JobCreate):
     job_id: str = Field(default_factory=lambda: new_id("job"))
     status: JobStatus = JobStatus.DRAFT
+    approval_state: ApprovalState = ApprovalState.NOT_REQUIRED
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
@@ -132,6 +140,17 @@ class JobPatch(BaseModel):
     policy_spec: PolicySpec | None = None
     segment_spec: SegmentSpec | None = None
     schedule_spec: ScheduleSpec | None = None
+
+
+class JobStateTransitionRequest(BaseModel):
+    workspace_id: str
+    approval_state: ApprovalState | None = None
+
+
+class AuditRecord(BaseModel):
+    action: str
+    timestamp: datetime
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class JobCreateResponse(BaseModel):

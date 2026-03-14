@@ -10,20 +10,85 @@ from api.dependencies import (
     require_api_token,
 )
 from caliper_core.models import (
+    ApprovalState,
     Arm,
     ArmBulkRegisterRequest,
     ArmBulkRegisterResponse,
     ArmLifecycleAction,
     ArmLifecycleRequest,
     ArmState,
+    AuditRecord,
     Job,
     JobCreate,
     JobCreateResponse,
     JobPatch,
+    JobStateTransitionRequest,
+    JobStatus,
 )
 from caliper_storage import SQLRepository
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Engine
+
+_JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
+    JobStatus.DRAFT: {JobStatus.SHADOW, JobStatus.ACTIVE, JobStatus.ARCHIVED},
+    JobStatus.SHADOW: {JobStatus.ACTIVE, JobStatus.PAUSED, JobStatus.ARCHIVED},
+    JobStatus.ACTIVE: {JobStatus.PAUSED, JobStatus.COMPLETED, JobStatus.ARCHIVED},
+    JobStatus.PAUSED: {JobStatus.ACTIVE, JobStatus.COMPLETED, JobStatus.ARCHIVED},
+    JobStatus.COMPLETED: {JobStatus.ARCHIVED},
+    JobStatus.ARCHIVED: set(),
+}
+
+
+def _transition_job_state(
+    *,
+    repository: SQLRepository,
+    job_id: str,
+    payload: JobStateTransitionRequest,
+    target_state: JobStatus,
+    action_name: str,
+) -> Job:
+    job = repository.get_job(job_id)
+    if job is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+    if payload.workspace_id != job.workspace_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="workspace_id does not match the job workspace.",
+        )
+    if target_state not in _JOB_TRANSITIONS[job.status]:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"Invalid job state transition: {job.status.value} -> {target_state.value}."
+            ),
+        )
+
+    updated = repository.set_job_state(
+        workspace_id=payload.workspace_id,
+        job_id=job_id,
+        status=target_state,
+        approval_state=payload.approval_state,
+    )
+    if updated is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Job '{job_id}' not found.",
+        )
+
+    repository.append_audit(
+        workspace_id=payload.workspace_id,
+        job_id=job_id,
+        action=action_name,
+        metadata={
+            "from_status": job.status.value,
+            "to_status": updated.status.value,
+            "approval_state": updated.approval_state.value,
+        },
+    )
+    return updated
 
 
 def create_app() -> FastAPI:
@@ -99,6 +164,89 @@ def create_app() -> FastAPI:
             metadata={"patched_fields": sorted(patch.model_dump(exclude_none=True).keys())},
         )
         return updated
+
+    @app.post(
+        "/v1/jobs/{job_id}/pause",
+        dependencies=[Depends(require_api_token)],
+        response_model=Job,
+    )
+    def pause_job(
+        job_id: str,
+        payload: JobStateTransitionRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> Job:
+        return _transition_job_state(
+            repository=repository,
+            job_id=job_id,
+            payload=payload,
+            target_state=JobStatus.PAUSED,
+            action_name="job.pause",
+        )
+
+    @app.post(
+        "/v1/jobs/{job_id}/resume",
+        dependencies=[Depends(require_api_token)],
+        response_model=Job,
+    )
+    def resume_job(
+        job_id: str,
+        payload: JobStateTransitionRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> Job:
+        effective_payload = payload
+        if payload.approval_state is None:
+            effective_payload = JobStateTransitionRequest(
+                workspace_id=payload.workspace_id,
+                approval_state=ApprovalState.APPROVED,
+            )
+        return _transition_job_state(
+            repository=repository,
+            job_id=job_id,
+            payload=effective_payload,
+            target_state=JobStatus.ACTIVE,
+            action_name="job.resume",
+        )
+
+    @app.post(
+        "/v1/jobs/{job_id}/archive",
+        dependencies=[Depends(require_api_token)],
+        response_model=Job,
+    )
+    def archive_job(
+        job_id: str,
+        payload: JobStateTransitionRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> Job:
+        return _transition_job_state(
+            repository=repository,
+            job_id=job_id,
+            payload=payload,
+            target_state=JobStatus.ARCHIVED,
+            action_name="job.archive",
+        )
+
+    @app.get(
+        "/v1/jobs/{job_id}/audit",
+        dependencies=[Depends(require_api_token)],
+        response_model=list[AuditRecord],
+    )
+    def list_job_audit(
+        job_id: str,
+        workspace_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> list[AuditRecord]:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+        return repository.list_audit(workspace_id=workspace_id, job_id=job_id)
 
     @app.post(
         "/v1/jobs/{job_id}/arms:batch_register",

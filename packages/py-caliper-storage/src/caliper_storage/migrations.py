@@ -16,8 +16,25 @@ def upgrade(engine: Engine) -> None:
     """
 
     Base.metadata.create_all(bind=engine)
+    _ensure_jobs_columns(engine)
     _ensure_migration_table(engine)
     _stamp_version(engine)
+
+
+def _ensure_jobs_columns(engine: Engine) -> None:
+    inspector = inspect(engine)
+    if "jobs" not in inspector.get_table_names():
+        return
+
+    columns = {column["name"] for column in inspector.get_columns("jobs")}
+    if "approval_state" not in columns:
+        with engine.begin() as connection:
+            connection.execute(
+                text(
+                    "ALTER TABLE jobs ADD COLUMN approval_state "
+                    "VARCHAR(32) NOT NULL DEFAULT 'not_required'"
+                )
+            )
 
 
 def _ensure_migration_table(engine: Engine) -> None:

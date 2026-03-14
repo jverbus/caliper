@@ -5,13 +5,16 @@ from typing import Protocol, runtime_checkable
 
 from caliper_core.events import EventEnvelope
 from caliper_core.models import (
+    ApprovalState,
     Arm,
     ArmState,
     AssignResult,
+    AuditRecord,
     ExposureCreate,
     GuardrailEvent,
     Job,
     JobPatch,
+    JobStatus,
     OutcomeCreate,
     PolicySnapshot,
 )
@@ -24,6 +27,15 @@ class JobRepository(Protocol):
     def get_job(self, job_id: str) -> Job | None: ...
 
     def update_job(self, job_id: str, patch: JobPatch) -> Job | None: ...
+
+    def set_job_state(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        status: JobStatus,
+        approval_state: ApprovalState | None = None,
+    ) -> Job | None: ...
 
 
 @runtime_checkable
@@ -86,6 +98,8 @@ class AuditRepository(Protocol):
         action: str,
         metadata: dict[str, object],
     ) -> None: ...
+
+    def list_audit(self, *, workspace_id: str, job_id: str) -> list[AuditRecord]: ...
 
 
 @runtime_checkable

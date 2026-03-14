@@ -70,3 +70,10 @@
 - Expanded SQL repository arm support with scoped state transitions and cross-job upsert correctness for arm identifiers (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
 - Added integration coverage for 120-arm registration, lifecycle transitions, audit trail, and workspace/missing-entity validation (`tests/integration/test_api_arm_lifecycle.py`).
 - Documented arm registration and lifecycle API behavior (`docs/execution/ARM_BULK_REGISTRATION.md`).
+- CI for PR #12 passed and chunk **P2-003 Arm bulk registration and lifecycle** was merged (`29bd0dd`).
+- Started chunk **P2-004 Job state machine and approvals**.
+- Added job lifecycle endpoints for pause/resume/archive with explicit transition validation and 409 conflict behavior for invalid transitions (`apps/api/main.py`).
+- Added approval-state support on jobs plus repository/state mutation methods and backfill-safe schema migration hook for existing SQLite/Postgres instances (`packages/py-caliper-core/src/caliper_core/models.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-storage/src/caliper_storage/sqlalchemy_models.py`, `packages/py-caliper-storage/src/caliper_storage/migrations.py`).
+- Added queryable job audit endpoint (`GET /v1/jobs/{job_id}/audit`) and structured audit record model (`apps/api/main.py`, `packages/py-caliper-core/src/caliper_core/models.py`).
+- Added integration coverage for valid/invalid job transitions, non-destructive pause behavior, approval defaults, and audit-query contract (`tests/integration/test_api_job_state_machine.py`).
+- Documented job state-machine and approval behavior (`docs/execution/JOB_STATE_MACHINE.md`).
