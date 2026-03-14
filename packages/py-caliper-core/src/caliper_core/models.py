@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 
 def utc_now() -> datetime:
@@ -57,6 +57,11 @@ class GuardrailAction(StrEnum):
     DEMOTE = "demote"
     PAUSE = "pause"
     REQUIRE_MANUAL_RESUME = "require_manual_resume"
+
+
+class ExposureType(StrEnum):
+    RENDERED = "rendered"
+    EXECUTED = "executed"
 
 
 class ObjectiveSpec(BaseModel):
@@ -123,6 +128,12 @@ class JobPatch(BaseModel):
     schedule_spec: ScheduleSpec | None = None
 
 
+class JobCreateResponse(BaseModel):
+    job_id: str
+    status: JobStatus
+    created_at: datetime
+
+
 class ArmInput(BaseModel):
     arm_id: str
     name: str
@@ -160,7 +171,7 @@ class AssignResult(BaseModel):
     job_id: str
     unit_id: str
     arm_id: str
-    propensity: float
+    propensity: float = Field(gt=0, le=1)
     policy_family: PolicyFamily
     policy_version: str
     context_schema_version: str | None = None
@@ -169,13 +180,6 @@ class AssignResult(BaseModel):
     context: dict[str, Any] = Field(default_factory=dict)
     timestamp: datetime = Field(default_factory=utc_now)
 
-    @field_validator("propensity")
-    @classmethod
-    def _validate_propensity(cls, value: float) -> float:
-        if value <= 0 or value > 1:
-            msg = "propensity must be in (0, 1]"
-            raise ValueError(msg)
-        return value
 
 
 class ExposureCreate(BaseModel):
@@ -183,7 +187,7 @@ class ExposureCreate(BaseModel):
     job_id: str
     decision_id: str
     unit_id: str
-    exposure_type: str = "rendered"
+    exposure_type: ExposureType = ExposureType.RENDERED
     timestamp: datetime = Field(default_factory=utc_now)
     metadata: dict[str, Any] = Field(default_factory=dict)
 
