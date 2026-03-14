@@ -208,3 +208,8 @@
 - Added email demo execution doc + acceptance mapping and generated demo report fixtures for embedded/service (`docs/execution/EMAIL_DEMO.md`, `docs/fixtures/email_demo/embedded/*`, `docs/fixtures/email_demo/service/*`).
 - Investigated PR #37 CI failure in `test_email_demo_service_mode`; made unsubscribe webhook generation deterministic for `subject-b` in demo outcomes to ensure guardrail cap behavior is stable across embedded/service runs (`examples/email_demo/demo.py`, `6803735`).
 - Pushed fix to `chunk/p7-004-email-demo`; PR #37 checks rerunning.
+- CI for PR #37 passed and chunk **P7-004 Email demo** was merged (`033d4d5`).
+- Started chunk **P8-001 Human-readable reports polish**.
+- Upgraded report rendering to a stable human-readable structure with summary metrics, leaders table, and semantic HTML sections (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
+- Added recommendation language rules with confidence-aware promotion guidance and explicit guardrail escalation wording (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
+- Added report rendering coverage for stable markdown/html sections and updated report integration assertions (`tests/unit/test_report_generator.py`, `tests/integration/test_api_reports.py`).

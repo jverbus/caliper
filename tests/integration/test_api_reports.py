@@ -107,7 +107,8 @@ def test_report_generation_and_latest_retrieval(monkeypatch: pytest.MonkeyPatch)
     assert report["job_id"] == job_id
     assert isinstance(report["leaders"], list)
     assert "## Leaders" in report["markdown"]
-    assert report["html"].startswith("<html>")
+    assert "## Summary" in report["markdown"]
+    assert report["html"].startswith("<!doctype html><html>")
 
     latest = client.get(f"/v1/jobs/{job_id}/reports/latest", params={"workspace_id": "ws-demo"})
     assert latest.status_code == 200
