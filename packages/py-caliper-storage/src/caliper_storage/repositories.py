@@ -4,9 +4,11 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
 
+from caliper_core.events import EventEnvelope
 from caliper_core.interfaces import (
     ArmRepository,
     DecisionRepository,
+    EventLedger,
     ExposureRepository,
     JobRepository,
     OutcomeRepository,
@@ -15,7 +17,14 @@ from caliper_core.models import Arm, AssignResult, ExposureCreate, Job, JobPatch
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from caliper_storage.sqlalchemy_models import ArmRow, DecisionRow, ExposureRow, JobRow, OutcomeRow
+from caliper_storage.sqlalchemy_models import (
+    ArmRow,
+    DecisionRow,
+    EventRow,
+    ExposureRow,
+    JobRow,
+    OutcomeRow,
+)
 
 SessionFactory = Callable[[], Session]
 
@@ -26,6 +35,7 @@ class SQLRepository(
     DecisionRepository,
     ExposureRepository,
     OutcomeRepository,
+    EventLedger,
 ):
     """SQLAlchemy-backed repository implementation for core domain models."""
 
@@ -202,6 +212,56 @@ class SQLRepository(
             rows = session.scalars(statement).all()
             return [self._row_to_outcome(row) for row in rows]
 
+    def append(self, event: EventEnvelope) -> EventEnvelope:
+        with self._session() as session:
+            if event.idempotency_key is not None:
+                existing = session.scalar(
+                    select(EventRow).where(
+                        EventRow.workspace_id == event.workspace_id,
+                        EventRow.job_id == event.job_id,
+                        EventRow.event_type == event.event_type,
+                        EventRow.idempotency_key == event.idempotency_key,
+                    )
+                )
+                if existing is not None:
+                    return self._row_to_event(existing)
+
+            row = EventRow(
+                event_id=event.event_id,
+                workspace_id=event.workspace_id,
+                job_id=event.job_id,
+                event_type=event.event_type,
+                entity_id=event.entity_id,
+                idempotency_key=event.idempotency_key,
+                timestamp=event.timestamp,
+                payload_json=event.payload,
+            )
+            session.add(row)
+            return event
+
+    def replay(
+        self,
+        *,
+        workspace_id: str,
+        job_id: str,
+        start: datetime | None = None,
+        end: datetime | None = None,
+    ) -> list[EventEnvelope]:
+        statement = select(EventRow).where(
+            EventRow.workspace_id == workspace_id,
+            EventRow.job_id == job_id,
+        )
+        if start is not None:
+            statement = statement.where(EventRow.timestamp >= start)
+        if end is not None:
+            statement = statement.where(EventRow.timestamp <= end)
+
+        statement = statement.order_by(EventRow.timestamp.asc(), EventRow.event_id.asc())
+
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [self._row_to_event(row) for row in rows]
+
     def _row_to_job(self, row: JobRow | None) -> Job | None:
         if row is None:
             return None
@@ -282,6 +342,20 @@ class SQLRepository(
                 "events": row.events_json,
                 "attribution_window": row.attribution_window_json,
                 "metadata": row.metadata_json,
+            }
+        )
+
+    def _row_to_event(self, row: EventRow) -> EventEnvelope:
+        return EventEnvelope.model_validate(
+            {
+                "event_id": row.event_id,
+                "workspace_id": row.workspace_id,
+                "job_id": row.job_id,
+                "event_type": row.event_type,
+                "entity_id": row.entity_id,
+                "idempotency_key": row.idempotency_key,
+                "timestamp": row.timestamp,
+                "payload": row.payload_json,
             }
         )
 
