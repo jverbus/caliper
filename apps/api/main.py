@@ -349,16 +349,12 @@ def create_app() -> FastAPI:
             )
         return repository.list_snapshots(workspace_id, job_id)
 
-    @app.post(
-        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/activate",
-        dependencies=[Depends(require_api_token)],
-        response_model=PolicySnapshot,
-    )
-    def activate_policy_snapshot(
+    def _activate_policy_snapshot(
+        *,
         job_id: str,
         snapshot_id: str,
         payload: PolicySnapshotActivateRequest,
-        repository: Annotated[SQLRepository, Depends(get_repository)],
+        repository: SQLRepository,
     ) -> PolicySnapshot:
         activated = repository.activate_snapshot(
             workspace_id=payload.workspace_id,
@@ -399,6 +395,42 @@ def create_app() -> FastAPI:
             },
         )
         return activated
+
+    @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/activate",
+        dependencies=[Depends(require_api_token)],
+        response_model=PolicySnapshot,
+    )
+    def activate_policy_snapshot(
+        job_id: str,
+        snapshot_id: str,
+        payload: PolicySnapshotActivateRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> PolicySnapshot:
+        return _activate_policy_snapshot(
+            job_id=job_id,
+            snapshot_id=snapshot_id,
+            payload=payload,
+            repository=repository,
+        )
+
+    @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/promote",
+        dependencies=[Depends(require_api_token)],
+        response_model=PolicySnapshot,
+    )
+    def promote_policy_snapshot(
+        job_id: str,
+        snapshot_id: str,
+        payload: PolicySnapshotActivateRequest,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> PolicySnapshot:
+        return _activate_policy_snapshot(
+            job_id=job_id,
+            snapshot_id=snapshot_id,
+            payload=payload,
+            repository=repository,
+        )
 
     @app.post(
         "/v1/jobs/{job_id}/policy-snapshots/rollback",

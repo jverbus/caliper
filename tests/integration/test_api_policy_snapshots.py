@@ -93,11 +93,11 @@ def test_policy_snapshot_activation_and_rollback(monkeypatch: pytest.MonkeyPatch
     assert v2.status_code == 200
     v2_snapshot = v2.json()
 
-    activate_v2 = client.post(
-        f"/v1/jobs/{job_id}/policy-snapshots/{v2_snapshot['snapshot_id']}/activate",
+    promote_v2 = client.post(
+        f"/v1/jobs/{job_id}/policy-snapshots/{v2_snapshot['snapshot_id']}/promote",
         json={"workspace_id": "ws-demo"},
     )
-    assert activate_v2.status_code == 200
+    assert promote_v2.status_code == 200
 
     assign_v2 = client.post(
         "/v1/assign",
@@ -107,7 +107,7 @@ def test_policy_snapshot_activation_and_rollback(monkeypatch: pytest.MonkeyPatch
             "unit_id": "visitor-v2",
             "candidate_arms": ["arm-a", "arm-b"],
             "context": {},
-            "idempotency_key": "assign-v2",
+            "idempotency_key": f"assign-v2-{job_id}",
         },
     )
     assert assign_v2.status_code == 200
@@ -129,9 +129,35 @@ def test_policy_snapshot_activation_and_rollback(monkeypatch: pytest.MonkeyPatch
             "unit_id": "visitor-v1",
             "candidate_arms": ["arm-a", "arm-b"],
             "context": {},
-            "idempotency_key": "assign-v1",
+            "idempotency_key": f"assign-v1-{job_id}",
         },
     )
     assert assign_v1.status_code == 200
     assert assign_v1.json()["policy_version"] == "v1"
     assert assign_v1.json()["diagnostics"]["scores"] == {"arm-a": 0.9, "arm-b": 0.1}
+
+    resume_to_active = client.post(
+        f"/v1/jobs/{job_id}/resume",
+        json={"workspace_id": "ws-demo", "approval_state": "approved"},
+    )
+    assert resume_to_active.status_code == 200
+
+    pause = client.post(
+        f"/v1/jobs/{job_id}/pause",
+        json={"workspace_id": "ws-demo", "approval_state": "pending"},
+    )
+    assert pause.status_code == 200
+
+    resume = client.post(
+        f"/v1/jobs/{job_id}/resume",
+        json={"workspace_id": "ws-demo", "approval_state": "approved"},
+    )
+    assert resume.status_code == 200
+
+    audit = client.get(f"/v1/jobs/{job_id}/audit", params={"workspace_id": "ws-demo"})
+    assert audit.status_code == 200
+    actions = [entry["action"] for entry in audit.json()]
+    assert "job.pause" in actions
+    assert "job.resume" in actions
+    assert "policy.snapshot.activated" in actions
+    assert "policy.snapshot.rollback" in actions

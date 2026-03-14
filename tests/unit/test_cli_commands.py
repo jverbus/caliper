@@ -38,6 +38,18 @@ class _FakeClient:
             ("POST", "/v1/jobs/job_1/reports:generate"): _FakeResponse(200, {"report_id": "rpt_1"}),
             ("POST", "/v1/jobs/job_1/pause"): _FakeResponse(200, {"status": "paused"}),
             ("POST", "/v1/jobs/job_1/resume"): _FakeResponse(200, {"status": "active"}),
+            (
+                "POST",
+                "/v1/jobs/job_1/policy-snapshots/snap_2/promote",
+            ): _FakeResponse(200, {"policy_version": "v2"}),
+            ("POST", "/v1/jobs/job_1/policy-snapshots/rollback"): _FakeResponse(
+                200,
+                {"policy_version": "v1"},
+            ),
+            ("GET", "/v1/jobs/job_1/audit"): _FakeResponse(
+                200,
+                [{"action": "job.pause"}, {"action": "policy.snapshot.rollback"}],
+            ),
         }
 
     def __enter__(self) -> _FakeClient:
@@ -51,8 +63,10 @@ class _FakeClient:
         method: str,
         path: str,
         json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
     ) -> _FakeResponse:
-        self.requests.append((method, path, json, self._headers, self._base_url))
+        payload = json if json is not None else params
+        self.requests.append((method, path, payload, self._headers, self._base_url))
         return self._responses[(method, path)]
 
 
@@ -159,7 +173,31 @@ def test_cli_core_commands(monkeypatch: pytest.MonkeyPatch) -> None:
     resume = runner.invoke(app, ["resume-job", "--workspace-id", "ws-demo", "--job-id", "job_1"])
     assert resume.exit_code == 0
 
-    assert len(_FakeClient.requests) == 8
+    promote = runner.invoke(
+        app,
+        [
+            "promote-policy",
+            "--workspace-id",
+            "ws-demo",
+            "--job-id",
+            "job_1",
+            "--snapshot-id",
+            "snap_2",
+        ],
+    )
+    assert promote.exit_code == 0
+
+    rollback = runner.invoke(
+        app,
+        ["rollback-policy", "--workspace-id", "ws-demo", "--job-id", "job_1"],
+    )
+    assert rollback.exit_code == 0
+
+    audit = runner.invoke(app, ["job-audit", "--workspace-id", "ws-demo", "--job-id", "job_1"])
+    assert audit.exit_code == 0
+    assert '"action": "policy.snapshot.rollback"' in audit.stdout
+
+    assert len(_FakeClient.requests) == 11
     method, path, _, _, _ = _FakeClient.requests[0]
     assert method == "POST"
     assert path == "/v1/jobs"
