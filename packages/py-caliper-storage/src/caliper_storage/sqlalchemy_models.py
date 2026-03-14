@@ -212,3 +212,31 @@ class ReportRunRow(Base):
     job_id: Mapped[str] = mapped_column(String(64), index=True)
     generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
     payload_json: Mapped[dict[str, object]] = mapped_column(JSON)
+
+
+class ScheduledTaskRow(Base):
+    __tablename__ = "scheduled_tasks"
+
+    task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    workspace_id: Mapped[str] = mapped_column(String(128), index=True)
+    job_id: Mapped[str] = mapped_column(String(64), index=True)
+    task_type: Mapped[str] = mapped_column(String(64), index=True)
+    due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    payload_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempt_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    __table_args__ = (
+        Index(
+            "idx_scheduled_task_scope_status_due",
+            "workspace_id",
+            "job_id",
+            "status",
+            "due_at",
+        ),
+    )
