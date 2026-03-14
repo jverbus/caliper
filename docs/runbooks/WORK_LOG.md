@@ -27,3 +27,7 @@
 - Added unit coverage for required-field validation, enum parsing, and schema generation (`tests/unit/test_domain_models.py`, `tests/unit/test_schema_generation.py`).
 - Documented schema package usage in `docs/execution/SHARED_SCHEMA_PACKAGE.md`.
 - Fixed CI lint blocker on PR #5 by applying Ruff import/order formatting fixes (`packages/py-caliper-core/src/caliper_core/__init__.py`, `tests/unit/test_domain_models.py`).
+- CI for PR #5 passed and chunk **P1-001 Domain models and schemas** was merged (`dd7ed3f`).
+- Started chunk **P1-002 Storage interfaces and SQLite backend**.
+- Added concrete SQLite repository implementation for job/arm/decision/exposure/outcome persistence (`packages/py-caliper-storage/src/caliper_storage/repositories.py`).
+- Added SQLite integration persistence roundtrip coverage (`tests/integration/test_storage_sqlite.py`) and storage backend execution doc (`docs/execution/STORAGE_BACKEND.md`).
