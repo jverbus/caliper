@@ -159,3 +159,11 @@
 - Added latency/cost/objective outcome logging and optional human acceptance outcome helper (`packages/py-caliper-adapters/src/caliper_adapters/workflow.py`).
 - Added unit coverage for workflow assignment, execution metrics logging, and human acceptance outcome behavior (`tests/unit/test_workflow_adapter.py`).
 - Documented workflow adapter API and acceptance mapping (`docs/execution/WORKFLOW_ADAPTER.md`).
+- CI for PR #28 passed and chunk **P5-003 Workflow adapter** was merged (`92d99f8`).
+- Started chunk **P5-004 Workflow demo and docs**.
+- Replaced workflow demo scaffold with end-to-end embedded/service runner that creates a workflow job, registers arms, executes assignments/outcomes, and generates reports (`examples/workflow_demo/demo.py`).
+- Added checked-in workflow demo report fixtures for embedded and service runs (`docs/fixtures/workflow_demo/embedded/*`, `docs/fixtures/workflow_demo/service/*`).
+- Added dedicated workflow demo execution doc with run instructions and acceptance mapping (`docs/execution/WORKFLOW_DEMO.md`).
+- Added integration coverage validating workflow demo success in both embedded and service mode (`tests/integration/test_workflow_demo.py`).
+- Updated Makefile runtime/demo targets to export workspace `PYTHONPATH` so demo/service entrypoints run directly (`Makefile`).
+- Fixed PR #29 CI blockers by ensuring workflow demo bootstraps SQLite directories/reset behavior for repeatable runs and by tightening workflow demo typing annotations (`examples/workflow_demo/demo.py`, `tests/integration/test_workflow_demo.py`).
