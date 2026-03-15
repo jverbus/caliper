@@ -280,3 +280,4 @@
 - Added organization router adapter runtime helpers for assignment+executed exposure logging and completion outcome logging with quality/speed/cost + optional downstream events (`packages/py-caliper-adapters/src/caliper_adapters/org_router.py`, `packages/py-caliper-adapters/src/caliper_adapters/__init__.py`).
 - Added unit coverage for organization routing assignment/exposure behavior and completion outcome event composition (`tests/unit/test_org_router_adapter.py`).
 - Documented org-router runtime contract, child-policy reference mapping, and acceptance targets (`docs/execution/ORGANIZATION_ROUTER_RUNTIME.md`).
+- Opened PR #49 for PV1-004 (`chunk/pv1-004-organization-router-runtime`).
