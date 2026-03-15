@@ -1,5 +1,6 @@
 """Caliper storage package."""
 
+from caliper_storage.clickhouse import ClickHouseAnalyticsStore, JobAnalyticsSummary
 from caliper_storage.engine import (
     build_engine,
     init_db,
@@ -11,6 +12,8 @@ from caliper_storage.repositories import PostgresRepository, SQLiteRepository, S
 
 __all__ = [
     "MIGRATION_VERSION",
+    "ClickHouseAnalyticsStore",
+    "JobAnalyticsSummary",
     "PostgresRepository",
     "SQLRepository",
     "SQLiteRepository",
