@@ -260,3 +260,7 @@
 - Added integration coverage for contextual gate blocked/pass flows, including required shadow-evaluation evidence prior to contextual activation (`tests/integration/test_api_policy_snapshots.py`).
 - Documented contextual promotion gate behavior, gate contract, and acceptance mapping (`docs/execution/CONTEXTUAL_PROMOTION_GATE_SCAFFOLD.md`).
 - CI for PR #45 passed and chunk **P9-004 Contextual promotion gate scaffold** was merged (`3d3184d`).
+- Started chunk **PV1-001 disjoint LinUCB**.
+- Added `disjoint_linucb` policy-family routing with feature parsing, disjoint state UCB scoring, and safe equal-split fallback (`packages/py-caliper-policies/src/caliper_policies/engine.py`, `packages/py-caliper-core/src/caliper_core/models.py`).
+- Added unit coverage for LinUCB winner selection and missing-feature fallback (`tests/unit/test_assignment_engine.py`).
+- Documented policy contract and diagnostics (`docs/execution/DISJOINT_LINUCB_POLICY.md`).
