@@ -5,6 +5,7 @@ from collections import defaultdict
 from caliper_core.models import (
     Arm,
     AssignResult,
+    ExposureCreate,
     Job,
     OutcomeCreate,
     Recommendation,
@@ -27,7 +28,7 @@ class ReportGenerator:
         job: Job,
         arms: list[Arm],
         decisions: list[AssignResult],
-        exposures: int,
+        exposures: list[ExposureCreate],
         outcomes: list[OutcomeCreate],
         guardrails: list[dict[str, object]],
     ) -> ReportPayload:
@@ -46,6 +47,19 @@ class ReportGenerator:
         for record in reward_records:
             rewards_by_arm[record.arm_id].append(record.reward)
 
+        arm_by_decision_id = {decision.decision_id: decision.arm_id for decision in decisions}
+        exposures_by_arm: dict[str, int] = defaultdict(int)
+        for exposure in exposures:
+            arm_id = arm_by_decision_id.get(exposure.decision_id)
+            if arm_id is not None:
+                exposures_by_arm[arm_id] += 1
+
+        outcomes_by_arm: dict[str, int] = defaultdict(int)
+        for outcome in outcomes:
+            arm_id = arm_by_decision_id.get(outcome.decision_id)
+            if arm_id is not None:
+                outcomes_by_arm[arm_id] += 1
+
         total_assignments = max(1, len(decisions))
         summaries: list[ReportSummary] = []
         for arm in arms:
@@ -54,12 +68,8 @@ class ReportGenerator:
                 ReportSummary(
                     arm_id=arm.arm_id,
                     assignments=assignments_by_arm.get(arm.arm_id, 0),
-                    exposures=exposures,
-                    outcomes=sum(
-                        1
-                        for out in outcomes
-                        if out.decision_id in decision_ids_by_arm.get(arm.arm_id, set())
-                    ),
+                    exposures=exposures_by_arm.get(arm.arm_id, 0),
+                    outcomes=outcomes_by_arm.get(arm.arm_id, 0),
                     avg_reward=(sum(rewards) / len(rewards)) if rewards else 0.0,
                     assignment_share=assignments_by_arm.get(arm.arm_id, 0) / total_assignments,
                 )
@@ -82,7 +92,7 @@ class ReportGenerator:
             segment_findings=segment_findings,
             recommendations=recommendations,
             total_assignments=len(decisions),
-            total_exposures=exposures,
+            total_exposures=len(exposures),
             total_outcomes=sum(len(item.events) for item in outcomes),
         )
         html = self._to_html(
@@ -93,7 +103,7 @@ class ReportGenerator:
             segment_findings=segment_findings,
             recommendations=recommendations,
             total_assignments=len(decisions),
-            total_exposures=exposures,
+            total_exposures=len(exposures),
             total_outcomes=sum(len(item.events) for item in outcomes),
         )
 
@@ -287,36 +297,40 @@ class ReportGenerator:
         total_outcomes: int,
     ) -> str:
         def escape(value: object) -> str:
-            return (
-                str(value)
-                .replace("&", "&amp;")
-                .replace("<", "&lt;")
-                .replace(">", "&gt;")
-            )
+            return str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
-        leader_rows = "".join(
-            [
-                "<tr>"
-                f"<td><code>{escape(summary.arm_id)}</code></td>"
-                f"<td>{summary.avg_reward:.4f}</td>"
-                f"<td>{summary.assignment_share:.2%}</td>"
-                f"<td>{summary.assignments}</td>"
-                "</tr>"
-                for summary in leaders
-            ]
-        ) or "<tr><td colspan='4'>No leaders available yet.</td></tr>"
+        leader_rows = (
+            "".join(
+                [
+                    "<tr>"
+                    f"<td><code>{escape(summary.arm_id)}</code></td>"
+                    f"<td>{summary.avg_reward:.4f}</td>"
+                    f"<td>{summary.assignment_share:.2%}</td>"
+                    f"<td>{summary.assignments}</td>"
+                    "</tr>"
+                    for summary in leaders
+                ]
+            )
+            or "<tr><td colspan='4'>No leaders available yet.</td></tr>"
+        )
 
         traffic_items = "".join(f"<li>{escape(note)}</li>" for note in traffic_shifts)
-        guardrail_items = "".join(
-            f"<li><code>{escape(event.get('metric', 'unknown'))}</code> "
-            f"status=<code>{escape(event.get('status', 'unknown'))}</code> "
-            f"action=<code>{escape(event.get('action', 'none'))}</code></li>"
-            for event in guardrails
-        ) or "<li>No guardrail events.</li>"
-        segment_items = "".join(
-            f"<li>{escape(item.segment)} ({item.observations} observations)</li>"
-            for item in segment_findings
-        ) or "<li>No segment findings.</li>"
+        guardrail_items = (
+            "".join(
+                f"<li><code>{escape(event.get('metric', 'unknown'))}</code> "
+                f"status=<code>{escape(event.get('status', 'unknown'))}</code> "
+                f"action=<code>{escape(event.get('action', 'none'))}</code></li>"
+                for event in guardrails
+            )
+            or "<li>No guardrail events.</li>"
+        )
+        segment_items = (
+            "".join(
+                f"<li>{escape(item.segment)} ({item.observations} observations)</li>"
+                for item in segment_findings
+            )
+            or "<li>No segment findings.</li>"
+        )
         recommendation_items = "".join(
             f"<li><strong>{escape(item.title)}:</strong> {escape(item.detail)}</li>"
             for item in recommendations

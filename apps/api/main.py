@@ -1109,9 +1109,7 @@ def create_app() -> FastAPI:
             job=job,
             arms=repository.list_arms(workspace_id=payload.workspace_id, job_id=job_id),
             decisions=repository.list_decisions(workspace_id=payload.workspace_id, job_id=job_id),
-            exposures=len(
-                repository.list_exposures(workspace_id=payload.workspace_id, job_id=job_id)
-            ),
+            exposures=repository.list_exposures(workspace_id=payload.workspace_id, job_id=job_id),
             outcomes=repository.list_outcomes(workspace_id=payload.workspace_id, job_id=job_id),
             guardrails=repository.list_guardrail_events(
                 workspace_id=payload.workspace_id,

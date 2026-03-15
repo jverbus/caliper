@@ -218,6 +218,15 @@
 - Added policy promotion UX alias endpoint (`POST /v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/promote`) while retaining existing activation flow (`apps/api/main.py`).
 - Expanded CLI operator controls with `promote-policy`, `rollback-policy`, and `job-audit` commands plus GET query support (`apps/cli/main.py`).
 - Added/updated tests covering operator controls and rollback correctness + audit visibility (`tests/unit/test_cli_commands.py`, `tests/integration/test_api_policy_snapshots.py`).
+
+## 2026-03-15
+
+- PR #56 (`post-v1 C3: embedded/service parity for exposure+outcome logical flow`) merged to `master` after green CI.
+- Started chunk **C4 report summary correctness** and opened PR #57 (`post-v1 C4: report summary correctness (arm-scoped exposures/outcomes)`).
+- Corrected report leader summaries to use arm-scoped exposure/outcome counts derived from decision ownership instead of repeating global totals per arm (`packages/py-caliper-reports/src/caliper_reports/generator.py`).
+- Updated API/worker/embedded SDK report generation call sites to pass full exposure records for summary accounting parity (`apps/api/main.py`, `apps/worker/loop.py`, `packages/py-sdk/src/caliper_sdk/client.py`).
+- Added C4 execution note and dedicated unit coverage for arm-scoped summary correctness (`docs/execution/C4_REPORT_SUMMARY_CORRECTNESS.md`, `tests/unit/test_report_generator.py`).
+- Validation before PR push: `make lint && make typecheck && make test` (all passed).
 - Documented pause/promote/rollback UX and updated CLI docs (`docs/execution/PAUSE_PROMOTE_ROLLBACK_UX.md`, `docs/execution/CLI.md`).
 - CI for PR #39 passed and chunk **P8-002 Pause, promote, and rollback UX** was merged (`b9263d8`).
 - Started chunk **P8-003 Packaging and install flow**.
