@@ -25,6 +25,7 @@ from caliper_core.models import (
 from caliper_storage import SQLRepository
 from caliper_storage.sqlalchemy_models import ScheduledTaskRow
 from worker.loop import WorkerLoop
+from worker.scheduler_backends import ScheduledTaskDispatch
 
 
 def _reset_dependency_caches() -> None:
@@ -257,3 +258,56 @@ def test_worker_guardrail_breach_pauses_job_and_records_event(
     guardrail_events = repository.list_guardrail_events(job.workspace_id, job.job_id)
     assert len(guardrail_events) == 1
     assert guardrail_events[0]["action"] == GuardrailAction.PAUSE.value
+
+
+def test_worker_dispatches_due_tasks_to_scheduler_backend(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    monkeypatch.setenv("CALIPER_DB_URL", f"sqlite:///{tmp_path}/scheduler-5.db")
+    _reset_dependency_caches()
+
+    repository = SQLRepository(dependencies.get_session_factory())
+    job = repository.create_job(_active_job())
+    now = datetime(2026, 3, 14, 10, 44, tzinfo=UTC)
+
+    with dependencies.get_session_factory()() as session:
+        session.add(
+            ScheduledTaskRow(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                task_type="generate_report",
+                due_at=now - timedelta(minutes=1),
+                status="pending",
+                payload_json={},
+                created_at=now,
+                updated_at=now,
+                started_at=None,
+                completed_at=None,
+                attempt_count=0,
+                last_error=None,
+            )
+        )
+        session.commit()
+
+    dispatched: list[ScheduledTaskDispatch] = []
+
+    class _FakeBackend:
+        def dispatch(self, task: ScheduledTaskDispatch) -> dict[str, object]:
+            dispatched.append(task)
+            return {"backend": "temporal", "workflow_id": "wf-1"}
+
+    loop = WorkerLoop(dependencies.get_session_factory(), scheduler_backend=_FakeBackend())
+    result = loop.run_once(now=now, max_due_tasks=10)
+    assert result.executed == 1
+    assert len(dispatched) == 1
+
+    report = repository.get_latest_report(workspace_id=job.workspace_id, job_id=job.job_id)
+    assert report is None
+
+    audit_actions = [
+        record.action
+        for record in repository.list_audit(workspace_id=job.workspace_id, job_id=job.job_id)
+    ]
+    assert "worker.task.dispatched" in audit_actions

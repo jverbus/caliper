@@ -11,6 +11,7 @@ from caliper_storage import SQLRepository
 from caliper_storage.sqlalchemy_models import JobRow, ScheduledTaskRow
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
+from worker.scheduler_backends import ScheduledTaskDispatch, SchedulerBackend
 
 
 @dataclass(frozen=True)
@@ -20,8 +21,13 @@ class WorkerRunResult:
 
 
 class WorkerLoop:
-    def __init__(self, session_factory: sessionmaker[Session]) -> None:
+    def __init__(
+        self,
+        session_factory: sessionmaker[Session],
+        scheduler_backend: SchedulerBackend | None = None,
+    ) -> None:
         self._session_factory = session_factory
+        self._scheduler_backend = scheduler_backend
         self._repository = SQLRepository(session_factory)
         self._report_generator = ReportGenerator()
         self._reward_engine = RewardEngine()
@@ -81,8 +87,28 @@ class WorkerLoop:
 
     def _execute_task(self, *, task: ScheduledTaskRow, now: datetime) -> None:
         error_text: str | None = None
+        dispatch_metadata: dict[str, object] | None = None
         try:
-            if task.task_type == "generate_report":
+            if self._scheduler_backend is not None:
+                dispatch_metadata = self._scheduler_backend.dispatch(
+                    ScheduledTaskDispatch(
+                        task_id=task.task_id,
+                        workspace_id=task.workspace_id,
+                        job_id=task.job_id,
+                        task_type=task.task_type,
+                    )
+                )
+                self._repository.append_audit(
+                    task.workspace_id,
+                    task.job_id,
+                    "worker.task.dispatched",
+                    {
+                        "task_id": task.task_id,
+                        "task_type": task.task_type,
+                        **dispatch_metadata,
+                    },
+                )
+            elif task.task_type == "generate_report":
                 self._execute_report(task.workspace_id, task.job_id)
             elif task.task_type == "run_policy_update":
                 self._execute_policy_update(task.workspace_id, task.job_id)
