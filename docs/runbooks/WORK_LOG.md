@@ -281,3 +281,9 @@
 - Added unit coverage for organization routing assignment/exposure behavior and completion outcome event composition (`tests/unit/test_org_router_adapter.py`).
 - Documented org-router runtime contract, child-policy reference mapping, and acceptance targets (`docs/execution/ORGANIZATION_ROUTER_RUNTIME.md`).
 - Opened PR #49 for PV1-004 (`chunk/pv1-004-organization-router-runtime`).
+- CI for PR #49 passed and chunk **PV1-004 organization router runtime** was merged (`b42f2f4`).
+- Started chunk **PV1-005 Kafka event bus**.
+- Added `KafkaEventBus` runtime implementation with event-type topic mapping, per-job partition key shaping, and hook-dispatch parity with existing bus primitives (`packages/py-caliper-events/src/caliper_events/bus.py`, `packages/py-caliper-events/src/caliper_events/__init__.py`).
+- Added unit coverage for Kafka publish topic/key/payload behavior (`tests/unit/test_event_bus.py`).
+- Documented Kafka event bus runtime contract and usage (`docs/execution/KAFKA_EVENT_BUS.md`).
+- Opened PR #50 for PV1-005 (`chunk/pv1-005-kafka-event-bus`).
