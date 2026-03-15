@@ -299,3 +299,4 @@
 - Added worker CLI/runtime backend selection with Temporal target/namespace/task-queue/workflow flags (`apps/worker/main.py`).
 - Added unit/integration coverage for Temporal dispatch payload shaping and worker backend dispatch audit behavior (`tests/unit/test_temporal_scheduler_backend.py`, `tests/integration/test_worker_scheduler.py`).
 - Documented Temporal scheduler backend contract and runtime notes (`docs/execution/TEMPORAL_SCHEDULER_BACKEND.md`).
+- Opened PR #52 for PV1-007 (`chunk/pv1-007-temporal-scheduler-backend`).
