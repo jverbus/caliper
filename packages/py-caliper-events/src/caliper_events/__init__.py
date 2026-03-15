@@ -1,6 +1,6 @@
 """Caliper event bus and projection primitives."""
 
-from caliper_events.bus import InlineEventBus, LedgerBackedEventBus, ProjectionHook
+from caliper_events.bus import InlineEventBus, KafkaEventBus, LedgerBackedEventBus, ProjectionHook
 from caliper_events.projections import (
     ProjectionCounts,
     ProjectionRebuildResult,
@@ -9,6 +9,7 @@ from caliper_events.projections import (
 
 __all__ = [
     "InlineEventBus",
+    "KafkaEventBus",
     "LedgerBackedEventBus",
     "ProjectionCounts",
     "ProjectionHook",
