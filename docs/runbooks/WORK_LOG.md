@@ -264,3 +264,9 @@
 - Added `disjoint_linucb` policy-family routing with feature parsing, disjoint state UCB scoring, and safe equal-split fallback (`packages/py-caliper-policies/src/caliper_policies/engine.py`, `packages/py-caliper-core/src/caliper_core/models.py`).
 - Added unit coverage for LinUCB winner selection and missing-feature fallback (`tests/unit/test_assignment_engine.py`).
 - Documented policy contract and diagnostics (`docs/execution/DISJOINT_LINUCB_POLICY.md`).
+- CI for PR #46 passed and chunk **PV1-001 disjoint LinUCB** was merged (`0e5ba6c`).
+- Started chunk **PV1-002 VW policy backend**.
+- Added `vw_cb_adf` policy-family enum and AssignmentEngine routing through a dedicated VW backend seam (`packages/py-caliper-core/src/caliper_core/models.py`, `packages/py-caliper-policies/src/caliper_policies/engine.py`).
+- Added deterministic `VWPolicyBackend` scaffold with CB-ADF example shaping, optional arm priors, and softmax-normalized probability outputs (`packages/py-caliper-policies/src/caliper_policies/vw_backend.py`, `packages/py-caliper-policies/src/caliper_policies/__init__.py`).
+- Added unit coverage for VW scaffold distribution bias and diagnostics/propensity contract (`tests/unit/test_assignment_engine.py`).
+- Documented VW backend scaffold policy contract and request-context expectations (`docs/execution/VW_POLICY_BACKEND.md`).

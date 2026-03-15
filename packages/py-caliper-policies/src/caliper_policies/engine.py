@@ -16,6 +16,8 @@ from caliper_core.models import (
     PolicyFamily,
 )
 
+from caliper_policies.vw_backend import VWPolicyBackend
+
 
 @dataclass(frozen=True)
 class WeightedArm:
@@ -29,6 +31,9 @@ class AssignmentError(ValueError):
 
 class AssignmentEngine:
     """Policy selection engine for assignment decisions."""
+
+    def __init__(self, *, vw_backend: VWPolicyBackend | None = None) -> None:
+        self._vw_backend = vw_backend or VWPolicyBackend()
 
     def assign(self, *, job: Job, request: AssignRequest, arms: list[Arm]) -> AssignResult:
         eligible_arms = self._eligible_arms(job=job, request=request, arms=arms)
@@ -112,6 +117,14 @@ class AssignmentEngine:
                 arm_ids=arm_ids,
             )
             return weighted, "disjoint_linucb_policy", fallback_used
+
+        if job.policy_spec.policy_family is PolicyFamily.VW_CB_ADF:
+            weighted, fallback_used = self._vw_cb_adf_weights(
+                job=job,
+                request=request,
+                arm_ids=arm_ids,
+            )
+            return weighted, "vw_cb_adf_policy_backend_scaffold", fallback_used
 
         weighted, fallback_used = self._fixed_split_weights(job=job, arm_ids=arm_ids)
         return weighted, "fixed_split_weighted_draw", fallback_used
@@ -291,6 +304,30 @@ class AssignmentEngine:
                 )
                 for arm_id in arm_ids
             ],
+            False,
+        )
+
+    def _vw_cb_adf_weights(
+        self,
+        *,
+        job: Job,
+        request: AssignRequest,
+        arm_ids: list[str],
+    ) -> tuple[list[WeightedArm], bool]:
+        scored = self._vw_backend.score_arms(
+            job_id=job.job_id,
+            unit_id=request.unit_id,
+            idempotency_key=request.idempotency_key,
+            arm_ids=arm_ids,
+            context=request.context,
+            params=job.policy_spec.params,
+        )
+        if not scored:
+            equal = 1.0 / len(arm_ids)
+            return ([WeightedArm(arm_id=arm_id, weight=equal) for arm_id in arm_ids], True)
+
+        return (
+            [WeightedArm(arm_id=item.arm_id, weight=item.probability) for item in scored],
             False,
         )
 
