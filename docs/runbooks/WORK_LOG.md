@@ -332,3 +332,4 @@
 - Added/updated integration coverage for promotion-check-driven contextual activation gating (`tests/integration/test_api_policy_snapshots.py`).
 - Added C5 execution note documenting replay/OBP/shadow-diff gating contract (`docs/execution/C5_REPLAY_OBP_SHADOW_DIFF_PROMOTION_GATE.md`).
 - Validation before PR push: `make lint && make typecheck && make test` (all passed).
+- Opened PR #58 for C5 (`chunk/postv1-c5-replay-obp-shadow-diff-gate`).
