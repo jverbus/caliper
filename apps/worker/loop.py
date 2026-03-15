@@ -3,7 +3,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from caliper_core.models import ApprovalState, ArmState, GuardrailAction, Job, JobStatus
+from caliper_core.events import EventEnvelope
+from caliper_core.models import (
+    ApprovalState,
+    ArmState,
+    GuardrailAction,
+    Job,
+    JobStatus,
+    PolicySnapshot,
+)
+from caliper_policies.updater import PolicyUpdater
 from caliper_reports import ReportGenerator
 from caliper_reward import GuardrailEngine
 from caliper_reward.engine import RewardEngine
@@ -32,6 +41,7 @@ class WorkerLoop:
         self._report_generator = ReportGenerator()
         self._reward_engine = RewardEngine()
         self._guardrail_engine = GuardrailEngine()
+        self._policy_updater = PolicyUpdater()
 
     def run_once(self, *, now: datetime | None = None, max_due_tasks: int = 25) -> WorkerRunResult:
         run_at = _as_aware_utc(now)
@@ -167,10 +177,13 @@ class WorkerLoop:
         if job is None or job.workspace_id != workspace_id:
             return
 
+        active_snapshot = self._repository.get_active_snapshot(workspace_id, job_id)
+        effective_job = self._effective_policy_job(job=job, active_snapshot=active_snapshot)
+
         decisions = self._repository.list_decisions(workspace_id, job_id)
         outcomes = self._repository.list_outcomes(workspace_id, job_id)
         dataset = self._reward_engine.build_policy_update_dataset(
-            objective_spec=job.objective_spec,
+            objective_spec=effective_job.objective_spec,
             decisions=decisions,
             outcomes=outcomes,
         )
@@ -184,7 +197,7 @@ class WorkerLoop:
         evaluations = self._guardrail_engine.evaluate(
             workspace_id=workspace_id,
             job_id=job_id,
-            guardrail_spec=job.guardrail_spec,
+            guardrail_spec=effective_job.guardrail_spec,
             records=dataset,
         )
 
@@ -208,6 +221,163 @@ class WorkerLoop:
                     "observed": evaluation.event.metadata.get("observed"),
                 },
             )
+
+        arms = self._repository.list_arms(workspace_id, job_id)
+        update = self._policy_updater.update(job=effective_job, arms=arms, records=dataset)
+        if update is None:
+            self._repository.append_audit(
+                workspace_id,
+                job_id,
+                "worker.policy.noop",
+                {
+                    "policy_family": effective_job.policy_spec.policy_family.value,
+                    "record_count": len(dataset),
+                    "reason": "unsupported_policy_family_or_no_records",
+                },
+            )
+            return
+
+        policy_version = self._next_policy_version(
+            active_snapshot=active_snapshot,
+            effective_job=effective_job,
+        )
+        snapshot = self._repository.save_snapshot(
+            PolicySnapshot(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                policy_family=effective_job.policy_spec.policy_family,
+                policy_version=policy_version,
+                payload=update.params,
+                is_active=False,
+            )
+        )
+        self._repository.append_audit(
+            workspace_id,
+            job_id,
+            "policy.snapshot.created",
+            {
+                "snapshot_id": snapshot.snapshot_id,
+                "policy_version": snapshot.policy_version,
+                "record_count": update.record_count,
+                "updated_arm_ids": list(update.updated_arm_ids),
+                "auto_generated": True,
+            },
+        )
+        self._repository.append(
+            EventEnvelope(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                event_type="policy.snapshot.created",
+                entity_id=snapshot.snapshot_id,
+                payload={
+                    "snapshot_id": snapshot.snapshot_id,
+                    "policy_family": snapshot.policy_family.value,
+                    "policy_version": snapshot.policy_version,
+                    "record_count": update.record_count,
+                    "updated_arm_ids": list(update.updated_arm_ids),
+                    "auto_generated": True,
+                },
+            )
+        )
+
+        blocking_actions = {GuardrailAction.PAUSE, GuardrailAction.REQUIRE_MANUAL_RESUME}
+        guardrail_blocked = any(
+            evaluation.event.action in blocking_actions for evaluation in evaluations
+        )
+        current_job = self._repository.get_job(job_id)
+        status_blocked = current_job is None or current_job.status != JobStatus.ACTIVE
+        if guardrail_blocked or status_blocked:
+            self._repository.append_audit(
+                workspace_id,
+                job_id,
+                "policy.snapshot.pending",
+                {
+                    "snapshot_id": snapshot.snapshot_id,
+                    "policy_version": snapshot.policy_version,
+                    "reason": (
+                        "guardrail_blocked" if guardrail_blocked else "job_not_active_after_update"
+                    ),
+                },
+            )
+            return
+
+        activated = self._repository.activate_snapshot(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            snapshot_id=snapshot.snapshot_id,
+        )
+        if activated is None:
+            return
+
+        self._repository.append(
+            EventEnvelope(
+                workspace_id=workspace_id,
+                job_id=job_id,
+                event_type="policy.updated",
+                entity_id=activated.snapshot_id,
+                payload={
+                    "snapshot_id": activated.snapshot_id,
+                    "policy_family": activated.policy_family.value,
+                    "policy_version": activated.policy_version,
+                    "activated_at": (
+                        activated.activated_at.isoformat() if activated.activated_at else None
+                    ),
+                    "auto_generated": True,
+                },
+            )
+        )
+        self._repository.append_audit(
+            workspace_id,
+            job_id,
+            "policy.snapshot.activated",
+            {
+                "snapshot_id": activated.snapshot_id,
+                "policy_version": activated.policy_version,
+                "auto_generated": True,
+            },
+        )
+
+    def _effective_policy_job(
+        self,
+        *,
+        job: Job,
+        active_snapshot: PolicySnapshot | None,
+    ) -> Job:
+        if active_snapshot is None:
+            return job
+        policy_spec = job.policy_spec.model_copy(
+            update={
+                "policy_family": active_snapshot.policy_family,
+                "params": {
+                    **active_snapshot.payload,
+                    "policy_version": active_snapshot.policy_version,
+                },
+            }
+        )
+        return job.model_copy(update={"policy_spec": policy_spec})
+
+    def _next_policy_version(
+        self,
+        *,
+        active_snapshot: PolicySnapshot | None,
+        effective_job: Job,
+    ) -> str:
+        if active_snapshot is not None:
+            base = active_snapshot.policy_version
+        else:
+            base_raw = effective_job.policy_spec.params.get("policy_version")
+            base = str(base_raw) if base_raw is not None else "v0"
+
+        if base.startswith("v") and base[1:].isdigit():
+            return f"v{int(base[1:]) + 1}"
+
+        marker = ".u"
+        if marker in base:
+            prefix, suffix = base.rsplit(marker, 1)
+            if suffix.isdigit():
+                return f"{prefix}{marker}{int(suffix) + 1}"
+
+        return f"{base}.u1"
 
     def _apply_guardrail_action(
         self,

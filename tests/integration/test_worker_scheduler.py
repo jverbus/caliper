@@ -6,6 +6,8 @@ from pathlib import Path
 import pytest
 from api import dependencies
 from caliper_core.models import (
+    Arm,
+    ArmType,
     AssignResult,
     DecisionDiagnostics,
     GuardrailAction,
@@ -52,6 +54,53 @@ def _active_job() -> Job:
         ),
         schedule_spec=ScheduleSpec(report_cron="0 7 * * *"),
         status=JobStatus.ACTIVE,
+    )
+
+
+def _epsilon_job() -> Job:
+    return Job(
+        workspace_id="ws-demo",
+        name="Worker epsilon update",
+        surface_type=SurfaceType.WEB,
+        objective_spec=ObjectiveSpec(reward_formula="conversion"),
+        guardrail_spec=GuardrailSpec(rules=[]),
+        policy_spec=PolicySpec(
+            policy_family=PolicyFamily.EPSILON_GREEDY,
+            params={
+                "epsilon": 0.1,
+                "value_estimates": {"arm-a": 0.4, "arm-b": 0.2},
+                "pull_counts": {"arm-a": 5, "arm-b": 5},
+                "policy_version": "v3",
+            },
+            update_cadence=UpdateCadence(mode="periodic", seconds=60),
+        ),
+        schedule_spec=ScheduleSpec(report_cron=None),
+        status=JobStatus.ACTIVE,
+    )
+
+
+def _register_default_arms(repository: SQLRepository, job: Job) -> None:
+    repository.upsert_arm(
+        Arm(
+            workspace_id=job.workspace_id,
+            job_id=job.job_id,
+            arm_id="arm-a",
+            name="Arm A",
+            arm_type=ArmType.ARTIFACT,
+            payload_ref="web://arm-a",
+            metadata={},
+        )
+    )
+    repository.upsert_arm(
+        Arm(
+            workspace_id=job.workspace_id,
+            job_id=job.job_id,
+            arm_id="arm-b",
+            name="Arm B",
+            arm_type=ArmType.ARTIFACT,
+            payload_ref="web://arm-b",
+            metadata={},
+        )
     )
 
 
@@ -139,6 +188,168 @@ def test_worker_executes_due_tasks_and_persists_outputs(
     assert "worker.policy.updated" in audit_actions
 
 
+def test_worker_policy_update_creates_and_activates_snapshot(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    monkeypatch.setenv("CALIPER_DB_URL", f"sqlite:///{tmp_path}/scheduler-policy.db")
+    _reset_dependency_caches()
+
+    repository = SQLRepository(dependencies.get_session_factory())
+    job = repository.create_job(_epsilon_job())
+    _register_default_arms(repository, job)
+
+    now = datetime(2026, 3, 14, 10, 44, tzinfo=UTC)
+    decisions = [
+        repository.create_decision(
+            AssignResult(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                unit_id="u-a-1",
+                arm_id="arm-a",
+                propensity=0.5,
+                policy_family=job.policy_spec.policy_family,
+                policy_version="v3",
+                diagnostics=DecisionDiagnostics(reason="fixture"),
+                candidate_arms=["arm-a", "arm-b"],
+                context={},
+                timestamp=now - timedelta(minutes=4),
+            )
+        ),
+        repository.create_decision(
+            AssignResult(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                unit_id="u-a-2",
+                arm_id="arm-a",
+                propensity=0.5,
+                policy_family=job.policy_spec.policy_family,
+                policy_version="v3",
+                diagnostics=DecisionDiagnostics(reason="fixture"),
+                candidate_arms=["arm-a", "arm-b"],
+                context={},
+                timestamp=now - timedelta(minutes=3),
+            )
+        ),
+        repository.create_decision(
+            AssignResult(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                unit_id="u-b-1",
+                arm_id="arm-b",
+                propensity=0.5,
+                policy_family=job.policy_spec.policy_family,
+                policy_version="v3",
+                diagnostics=DecisionDiagnostics(reason="fixture"),
+                candidate_arms=["arm-a", "arm-b"],
+                context={},
+                timestamp=now - timedelta(minutes=2),
+            )
+        ),
+        repository.create_decision(
+            AssignResult(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                unit_id="u-b-2",
+                arm_id="arm-b",
+                propensity=0.5,
+                policy_family=job.policy_spec.policy_family,
+                policy_version="v3",
+                diagnostics=DecisionDiagnostics(reason="fixture"),
+                candidate_arms=["arm-a", "arm-b"],
+                context={},
+                timestamp=now - timedelta(minutes=1),
+            )
+        ),
+    ]
+
+    for decision in decisions[:2]:
+        repository.create_outcome(
+            OutcomeCreate(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+                events=[
+                    OutcomeEvent(
+                        outcome_type="conversion",
+                        value=1.0,
+                        timestamp=decision.timestamp + timedelta(minutes=1),
+                    )
+                ],
+            )
+        )
+    for decision in decisions[2:]:
+        repository.create_outcome(
+            OutcomeCreate(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+                events=[
+                    OutcomeEvent(
+                        outcome_type="conversion",
+                        value=0.0,
+                        timestamp=decision.timestamp + timedelta(minutes=1),
+                    )
+                ],
+            )
+        )
+
+    with dependencies.get_session_factory()() as session:
+        session.add(
+            ScheduledTaskRow(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                task_type="run_policy_update",
+                due_at=now - timedelta(minutes=1),
+                status="pending",
+                payload_json={},
+                created_at=now,
+                updated_at=now,
+                started_at=None,
+                completed_at=None,
+                attempt_count=0,
+                last_error=None,
+            )
+        )
+        session.commit()
+
+    loop = WorkerLoop(dependencies.get_session_factory())
+    result = loop.run_once(now=now, max_due_tasks=10)
+    assert result.executed == 1
+
+    snapshots = repository.list_snapshots(job.workspace_id, job.job_id)
+    assert len(snapshots) == 1
+    snapshot = snapshots[0]
+    assert snapshot.is_active is True
+    assert snapshot.policy_version == "v4"
+
+    pull_counts = snapshot.payload.get("pull_counts")
+    value_estimates = snapshot.payload.get("value_estimates")
+    assert isinstance(pull_counts, dict)
+    assert isinstance(value_estimates, dict)
+    assert int(pull_counts["arm-a"]) == 7
+    assert int(pull_counts["arm-b"]) == 7
+    assert float(value_estimates["arm-a"]) > float(value_estimates["arm-b"])
+
+    policy_events = [
+        event
+        for event in repository.replay(workspace_id=job.workspace_id, job_id=job.job_id)
+        if event.event_type == "policy.updated"
+    ]
+    assert len(policy_events) == 1
+    assert policy_events[0].entity_id == snapshot.snapshot_id
+
+    audit_actions = [
+        record.action
+        for record in repository.list_audit(workspace_id=job.workspace_id, job_id=job.job_id)
+    ]
+    assert "policy.snapshot.created" in audit_actions
+    assert "policy.snapshot.activated" in audit_actions
+
+
 def test_due_task_survives_worker_restart(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -224,7 +435,13 @@ def test_worker_guardrail_breach_pauses_job_and_records_event(
             job_id=job.job_id,
             decision_id=decision.decision_id,
             unit_id=decision.unit_id,
-            events=[OutcomeEvent(outcome_type="error_rate", value=0.6)],
+            events=[
+                OutcomeEvent(
+                    outcome_type="error_rate",
+                    value=0.6,
+                    timestamp=decision.timestamp + timedelta(minutes=1),
+                )
+            ],
         )
     )
 
