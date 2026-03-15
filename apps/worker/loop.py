@@ -160,7 +160,7 @@ class WorkerLoop:
             job=job,
             arms=arms,
             decisions=decisions,
-            exposures=len(exposures),
+            exposures=exposures,
             outcomes=outcomes,
             guardrails=guardrails,
         )
