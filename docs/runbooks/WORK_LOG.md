@@ -287,3 +287,8 @@
 - Added unit coverage for Kafka publish topic/key/payload behavior (`tests/unit/test_event_bus.py`).
 - Documented Kafka event bus runtime contract and usage (`docs/execution/KAFKA_EVENT_BUS.md`).
 - Opened PR #50 for PV1-005 (`chunk/pv1-005-kafka-event-bus`).
+- CI for PR #50 passed and chunk **PV1-005 Kafka event bus** was merged (`5fac335`).
+- Started chunk **PV1-006 ClickHouse analytics backend**.
+- Added `ClickHouseAnalyticsStore` seam with schema bootstrap, event append, and job-summary aggregation helpers (`packages/py-caliper-storage/src/caliper_storage/clickhouse.py`, `packages/py-caliper-storage/src/caliper_storage/__init__.py`).
+- Added unit coverage for ClickHouse schema/ingest/query contract behavior (`tests/unit/test_clickhouse_analytics_store.py`).
+- Documented ClickHouse analytics backend contract and acceptance mapping (`docs/execution/CLICKHOUSE_ANALYTICS_BACKEND.md`).
