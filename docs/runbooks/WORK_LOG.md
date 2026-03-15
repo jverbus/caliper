@@ -286,3 +286,4 @@
 - Added `KafkaEventBus` runtime implementation with event-type topic mapping, per-job partition key shaping, and hook-dispatch parity with existing bus primitives (`packages/py-caliper-events/src/caliper_events/bus.py`, `packages/py-caliper-events/src/caliper_events/__init__.py`).
 - Added unit coverage for Kafka publish topic/key/payload behavior (`tests/unit/test_event_bus.py`).
 - Documented Kafka event bus runtime contract and usage (`docs/execution/KAFKA_EVENT_BUS.md`).
+- Opened PR #50 for PV1-005 (`chunk/pv1-005-kafka-event-bus`).
