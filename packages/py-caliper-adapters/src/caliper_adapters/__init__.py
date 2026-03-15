@@ -12,6 +12,7 @@ from caliper_adapters.email import (
     EmailWebhookType,
     TranchePlanningBlockedError,
 )
+from caliper_adapters.org_router import OrganizationRoute, OrgRouterAdapter
 from caliper_adapters.web import WebAdapter, WebAssignment
 from caliper_adapters.workflow import WorkflowAdapter, WorkflowAssignment
 
@@ -25,6 +26,8 @@ __all__ = [
     "EmailTranchePlanner",
     "EmailWebhookEvent",
     "EmailWebhookType",
+    "OrgRouterAdapter",
+    "OrganizationRoute",
     "TranchePlanningBlockedError",
     "WebAdapter",
     "WebAssignment",
