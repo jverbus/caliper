@@ -292,3 +292,4 @@
 - Added `ClickHouseAnalyticsStore` seam with schema bootstrap, event append, and job-summary aggregation helpers (`packages/py-caliper-storage/src/caliper_storage/clickhouse.py`, `packages/py-caliper-storage/src/caliper_storage/__init__.py`).
 - Added unit coverage for ClickHouse schema/ingest/query contract behavior (`tests/unit/test_clickhouse_analytics_store.py`).
 - Documented ClickHouse analytics backend contract and acceptance mapping (`docs/execution/CLICKHOUSE_ANALYTICS_BACKEND.md`).
+- Opened PR #51 for PV1-006 (`chunk/pv1-006-clickhouse-analytics-backend`).
