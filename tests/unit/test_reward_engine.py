@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+import pytest
 from caliper_core.models import (
     AssignResult,
     AttributionWindow,
@@ -12,6 +13,7 @@ from caliper_core.models import (
     PolicyFamily,
 )
 from caliper_reward import RewardEngine
+from caliper_reward.engine import RewardFormulaError
 
 
 def _decision(*, decision_id: str, arm_id: str, timestamp: datetime) -> AssignResult:
@@ -117,3 +119,61 @@ def test_policy_update_dataset_normalizes_rewards_and_filters_window() -> None:
     assert record.reward == 3.8
     assert record.normalized_reward == 1.0
     assert record.metrics["cost"] == 1.0
+
+
+def test_rate_metrics_use_weighted_denominator_semantics() -> None:
+    engine = RewardEngine()
+    objective = ObjectiveSpec(reward_formula="ctr")
+
+    outcome = OutcomeCreate(
+        workspace_id="ws_demo",
+        job_id="job_demo",
+        decision_id="dec_1",
+        unit_id="unit_1",
+        events=[
+            OutcomeEvent(
+                outcome_type="ctr",
+                value=0.10,
+                metric_kind="rate",
+                denominator=100,
+                timestamp=datetime(2026, 3, 14, 16, 0, tzinfo=UTC),
+            ),
+            OutcomeEvent(
+                outcome_type="ctr",
+                value=0.30,
+                metric_kind="rate",
+                denominator=10,
+                timestamp=datetime(2026, 3, 14, 16, 5, tzinfo=UTC),
+            ),
+        ],
+    )
+
+    reward, metrics = engine.evaluate_reward(objective_spec=objective, outcome=outcome)
+
+    assert reward == pytest.approx(13 / 110)
+    assert metrics["ctr"] == pytest.approx(13 / 110)
+    assert metrics["ctr__numerator"] == pytest.approx(13.0)
+    assert metrics["ctr__denominator"] == pytest.approx(110.0)
+
+
+def test_rate_metric_requires_positive_denominator() -> None:
+    engine = RewardEngine()
+    objective = ObjectiveSpec(reward_formula="ctr")
+    outcome = OutcomeCreate(
+        workspace_id="ws_demo",
+        job_id="job_demo",
+        decision_id="dec_1",
+        unit_id="unit_1",
+        events=[
+            OutcomeEvent(
+                outcome_type="ctr",
+                value=0.2,
+                metric_kind="rate",
+                denominator=0,
+                timestamp=datetime(2026, 3, 14, 16, 0, tzinfo=UTC),
+            )
+        ],
+    )
+
+    with pytest.raises(RewardFormulaError, match="requires a positive denominator"):
+        engine.evaluate_reward(objective_spec=objective, outcome=outcome)

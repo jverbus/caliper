@@ -247,6 +247,8 @@ class ExposureCreate(BaseModel):
 class OutcomeEvent(BaseModel):
     outcome_type: str
     value: float
+    metric_kind: str = "value"
+    denominator: float | None = None
     timestamp: datetime = Field(default_factory=utc_now)
 
 
