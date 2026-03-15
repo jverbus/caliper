@@ -326,3 +326,10 @@
 - Hardened embedded SDK exposure/outcome ingest parity with service mode by adding decision-context validation, idempotent replay, event-ledger appends, and audit records (`packages/py-sdk/src/caliper_sdk/client.py`).
 - Added SDK unit coverage for exposure/outcome idempotency, single-write ledger/audit behavior under replay, and context-mismatch validation (`tests/unit/test_python_sdk.py`).
 - Documented C3 parity behavior and acceptance mapping (`docs/execution/C3_EMBEDDED_SERVICE_PARITY_EXPOSURE_OUTCOME.md`).
+- Started chunk **post-v1 C5 replay/OBP/shadow-vs-live diff + promotion-gate hardening**.
+- Added snapshot-scoped non-live promotion checks endpoint (`POST /v1/jobs/{job_id}/policy-snapshots/{snapshot_id}:run-promotion-checks`) that records replay readiness, OBP readiness, and shadow-vs-live disagreement metrics before contextual activation (`apps/api/main.py`).
+- Hardened contextual gate enforcement to require successful promotion-check evidence for the exact snapshot under promotion (`apps/api/main.py`).
+- Added/updated integration coverage for promotion-check-driven contextual activation gating (`tests/integration/test_api_policy_snapshots.py`).
+- Added C5 execution note documenting replay/OBP/shadow-diff gating contract (`docs/execution/C5_REPLAY_OBP_SHADOW_DIFF_PROMOTION_GATE.md`).
+- Validation before PR push: `make lint && make typecheck && make test` (all passed).
+- Opened PR #58 for C5 (`chunk/postv1-c5-replay-obp-shadow-diff-gate`).

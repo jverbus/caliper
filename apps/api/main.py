@@ -151,11 +151,115 @@ def _contextual_gate_failures(
         failures.append("contextual_gate.context_schema_version is required")
 
     audits = repository.list_audit(workspace_id=snapshot.workspace_id, job_id=snapshot.job_id)
-    actions = {record.action for record in audits}
-    if "decision.shadow_evaluated" not in actions:
-        failures.append("at least one shadow evaluation is required before contextual activation")
+    gate_checks = [
+        record
+        for record in audits
+        if record.action == "policy.snapshot.promotion_checks.completed"
+        and record.metadata.get("snapshot_id") == snapshot.snapshot_id
+    ]
+    if not gate_checks:
+        failures.append(
+            "promotion checks must be run for this snapshot before contextual activation"
+        )
+    else:
+        latest_checks = gate_checks[0]
+        if latest_checks.metadata.get("shadow_diff_ready") is not True:
+            failures.append("shadow-vs-live diff check did not pass")
+        if latest_checks.metadata.get("replay_ready") is not True:
+            failures.append("replay export check did not pass")
+        if latest_checks.metadata.get("obp_ready") is not True:
+            failures.append("OBP preparation check did not pass")
 
     return failures
+
+
+def _run_promotion_checks(
+    *,
+    repository: SQLRepository,
+    workspace_id: str,
+    job_id: str,
+    snapshot: PolicySnapshot,
+) -> dict[str, object]:
+    try:
+        from caliper_ope import ReplayExporter, prepare_obp_data, summarize_dataset
+
+        replay_records = ReplayExporter(repository).export(
+            workspace_id=workspace_id,
+            job_id=job_id,
+        )
+        replay_summary = summarize_dataset(replay_records)
+        replay_ready = replay_summary.count > 0
+        obp_runtime_available = True
+    except ModuleNotFoundError:
+        replay_records = []
+        replay_summary = type("ReplaySummary", (), {"count": 0, "average_reward": 0.0})()
+        replay_ready = False
+        obp_runtime_available = False
+
+    decisions = repository.list_decisions(workspace_id=workspace_id, job_id=job_id)
+    effective_job = _resolve_effective_job(
+        repository=repository,
+        workspace_id=workspace_id,
+        job_id=job_id,
+    )
+    shadow_job = _apply_active_policy_snapshot(job=effective_job, snapshot=snapshot)
+
+    compared_count = 0
+    disagreement_count = 0
+    for decision in decisions:
+        candidate_arms = decision.candidate_arms if decision.candidate_arms else None
+        payload = AssignRequest(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            unit_id=decision.unit_id,
+            candidate_arms=candidate_arms,
+            context=decision.context,
+            idempotency_key=f"promotion-check-shadow-{snapshot.snapshot_id}-{decision.decision_id}",
+        )
+        shadow_decision = _evaluate_assignment(
+            repository=repository,
+            payload=payload,
+            effective_job=shadow_job,
+        )
+        compared_count += 1
+        if shadow_decision.arm_id != decision.arm_id:
+            disagreement_count += 1
+
+    shadow_diff_ready = compared_count > 0
+    disagreement_rate = (
+        float(disagreement_count) / float(compared_count) if compared_count > 0 else None
+    )
+
+    obp_ready = False
+    obp_error: str | None = None
+    if not obp_runtime_available:
+        obp_error = "caliper_ope package is not available in this runtime"
+    elif replay_records:
+        try:
+            prepare_obp_data(replay_records)
+            obp_ready = True
+        except Exception as exc:
+            obp_error = str(exc)
+
+    checks = {
+        "snapshot_id": snapshot.snapshot_id,
+        "replay_ready": replay_ready,
+        "replay_count": replay_summary.count,
+        "replay_average_reward": replay_summary.average_reward,
+        "shadow_diff_ready": shadow_diff_ready,
+        "shadow_compared_count": compared_count,
+        "shadow_disagreement_count": disagreement_count,
+        "shadow_disagreement_rate": disagreement_rate,
+        "obp_ready": obp_ready,
+        "obp_error": obp_error,
+    }
+    repository.append_audit(
+        workspace_id=workspace_id,
+        job_id=job_id,
+        action="policy.snapshot.promotion_checks.completed",
+        metadata=checks,
+    )
+    return checks
 
 
 def _resolve_effective_job(
@@ -494,6 +598,46 @@ def create_app() -> FastAPI:
             "passed": passed,
             "failures": failures,
         }
+
+    @app.post(
+        "/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}:run-promotion-checks",
+        dependencies=[Depends(require_api_token)],
+    )
+    def run_promotion_checks(
+        job_id: str,
+        snapshot_id: str,
+        workspace_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> dict[str, object]:
+        job = repository.get_job(job_id)
+        if job is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Job '{job_id}' not found.",
+            )
+        if workspace_id != job.workspace_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="workspace_id does not match the job workspace.",
+            )
+
+        snapshot = repository.get_snapshot(
+            workspace_id=workspace_id,
+            job_id=job_id,
+            snapshot_id=snapshot_id,
+        )
+        if snapshot is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Snapshot '{snapshot_id}' not found for job '{job_id}'.",
+            )
+
+        return _run_promotion_checks(
+            repository=repository,
+            workspace_id=workspace_id,
+            job_id=job_id,
+            snapshot=snapshot,
+        )
 
     def _activate_policy_snapshot(
         *,
