@@ -208,7 +208,7 @@ def test_contextual_promotion_gate_blocks_activation_without_checks(
     assert "contextual_gate.manual_review_approved must be true" in gate_body["failures"]
     assert "contextual_gate.context_schema_version is required" in gate_body["failures"]
     assert (
-        "at least one shadow evaluation is required before contextual activation"
+        "promotion checks must be run for this snapshot before contextual activation"
         in gate_body["failures"]
     )
 
@@ -272,19 +272,28 @@ def test_contextual_promotion_gate_allows_activation_after_non_live_checks(
     assert contextual_snapshot.status_code == 200
     snapshot_id = contextual_snapshot.json()["snapshot_id"]
 
-    shadow_eval = client.post(
-        "/v1/assign:shadow",
+    live_assign = client.post(
+        "/v1/assign",
         json={
             "workspace_id": "ws-demo",
             "job_id": job_id,
             "unit_id": "user-ctx",
             "candidate_arms": ["arm-a", "arm-b"],
-            "context": {},
-            "idempotency_key": "ctx-shadow-eval",
-            "shadow_snapshot_id": snapshot_id,
+            "context": {"obp_evaluation_probs": {"arm-a": 0.4, "arm-b": 0.6}},
+            "idempotency_key": f"ctx-live-assign-{job_id}",
         },
     )
-    assert shadow_eval.status_code == 200
+    assert live_assign.status_code == 200
+
+    checks = client.post(
+        f"/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}:run-promotion-checks",
+        params={"workspace_id": "ws-demo"},
+    )
+    assert checks.status_code == 200
+    checks_body = checks.json()
+    assert checks_body["shadow_diff_ready"] is True
+    assert checks_body["replay_ready"] is True
+    assert checks_body["obp_ready"] is True
 
     gate = client.get(
         f"/v1/jobs/{job_id}/policy-snapshots/{snapshot_id}/contextual-gate",
