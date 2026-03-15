@@ -214,6 +214,8 @@ def _apply_active_policy_snapshot(*, job: Job, snapshot: PolicySnapshot) -> Job:
         }
     )
     return job.model_copy(update={"policy_spec": policy_spec})
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="Caliper API", version="0.1.0")
 
@@ -254,6 +256,13 @@ def create_app() -> FastAPI:
             status=created.status,
             created_at=created.created_at,
         )
+
+    @app.get("/v1/jobs", dependencies=[Depends(require_api_token)], response_model=list[Job])
+    def list_jobs(
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+        workspace_id: str | None = None,
+    ) -> list[Job]:
+        return repository.list_jobs(workspace_id=workspace_id)
 
     @app.get("/v1/jobs/{job_id}", dependencies=[Depends(require_api_token)], response_model=Job)
     def get_job(
@@ -564,9 +573,7 @@ def create_app() -> FastAPI:
                     "policy_family": activated.policy_family.value,
                     "policy_version": activated.policy_version,
                     "activated_at": (
-                        activated.activated_at.isoformat()
-                        if activated.activated_at
-                        else None
+                        activated.activated_at.isoformat() if activated.activated_at else None
                     ),
                 },
             )
@@ -677,9 +684,7 @@ def create_app() -> FastAPI:
                     "policy_version": activated.policy_version,
                     "rollback": True,
                     "activated_at": (
-                        activated.activated_at.isoformat()
-                        if activated.activated_at
-                        else None
+                        activated.activated_at.isoformat() if activated.activated_at else None
                     ),
                 },
             )

@@ -107,6 +107,14 @@ class SQLRepository(
             row = session.get(JobRow, job_id)
             return self._row_to_job(row)
 
+    def list_jobs(self, *, workspace_id: str | None = None) -> list[Job]:
+        statement = select(JobRow).order_by(JobRow.created_at.asc(), JobRow.job_id.asc())
+        if workspace_id is not None:
+            statement = statement.where(JobRow.workspace_id == workspace_id)
+        with self._session() as session:
+            rows = session.scalars(statement).all()
+            return [job for row in rows if (job := self._row_to_job(row)) is not None]
+
     def update_job(self, job_id: str, patch: JobPatch) -> Job | None:
         with self._session() as session:
             row = session.get(JobRow, job_id)

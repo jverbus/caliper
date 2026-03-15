@@ -300,3 +300,12 @@
 - Added unit/integration coverage for Temporal dispatch payload shaping and worker backend dispatch audit behavior (`tests/unit/test_temporal_scheduler_backend.py`, `tests/integration/test_worker_scheduler.py`).
 - Documented Temporal scheduler backend contract and runtime notes (`docs/execution/TEMPORAL_SCHEDULER_BACKEND.md`).
 - Opened PR #52 for PV1-007 (`chunk/pv1-007-temporal-scheduler-backend`).
+- CI for PR #52 passed and chunk **PV1-007 Temporal scheduler backend** was merged (`9406adc`).
+
+## 2026-03-15
+
+- Started chunk **PV1-008 minimal operator UI**.
+- Added `GET /v1/jobs` API support with optional `workspace_id` filtering (`apps/api/main.py`, `packages/py-caliper-storage/src/caliper_storage/repositories.py`, `packages/py-caliper-core/src/caliper_core/interfaces.py`).
+- Added minimal FastAPI operator UI app with `/jobs` HTML dashboard and `/healthz` endpoint (`apps/operator_ui/main.py`).
+- Added integration coverage for job listing API and operator UI workspace filtering (`tests/integration/test_api_job_crud.py`, `tests/integration/test_operator_ui.py`).
+- Documented minimal operator UI runtime and acceptance mapping (`docs/execution/MINIMAL_OPERATOR_UI.md`).

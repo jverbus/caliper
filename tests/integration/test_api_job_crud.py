@@ -60,6 +60,16 @@ def test_job_crud_contract_and_audit_records(monkeypatch: pytest.MonkeyPatch) ->
 
     job_id = create_body["job_id"]
 
+    list_response = client.get("/v1/jobs")
+    assert list_response.status_code == 200
+    listed_jobs = list_response.json()
+    assert job_id in [job["job_id"] for job in listed_jobs]
+
+    filtered_list_response = client.get("/v1/jobs", params={"workspace_id": "ws-demo"})
+    assert filtered_list_response.status_code == 200
+    filtered_jobs = filtered_list_response.json()
+    assert job_id in [job["job_id"] for job in filtered_jobs]
+
     get_response = client.get(f"/v1/jobs/{job_id}")
     assert get_response.status_code == 200
     get_body = get_response.json()
