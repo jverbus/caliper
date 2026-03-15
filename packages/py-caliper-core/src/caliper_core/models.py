@@ -62,6 +62,7 @@ class PolicyFamily(StrEnum):
     EPSILON_GREEDY = "epsilon_greedy"
     UCB1 = "ucb1"
     THOMPSON_SAMPLING = "thompson_sampling"
+    DISJOINT_LINUCB = "disjoint_linucb"
 
 
 class GuardrailAction(StrEnum):

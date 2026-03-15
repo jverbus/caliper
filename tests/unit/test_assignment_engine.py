@@ -281,3 +281,69 @@ def test_thompson_sampling_emits_diagnostics() -> None:
     assert abs(sum(result.diagnostics.scores.values()) - 1.0) < 1e-9
     assert 0.0 < result.propensity <= 1.0
     assert result.propensity == result.diagnostics.scores[result.arm_id]
+
+
+def test_disjoint_linucb_prefers_arm_with_higher_upper_confidence_bound() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.DISJOINT_LINUCB,
+                params={
+                    "alpha": 0.5,
+                    "feature_order": ["f1", "f2"],
+                    "linucb_state": {
+                        "arm_a": {
+                            "a": [[1.0, 0.0], [0.0, 1.0]],
+                            "b": [0.9, 0.2],
+                        },
+                        "arm_b": {
+                            "a": [[1.0, 0.0], [0.0, 1.0]],
+                            "b": [0.1, 0.2],
+                        },
+                    },
+                },
+            ),
+        }
+    )
+    request = AssignRequest(
+        workspace_id="ws_demo",
+        job_id="job_1",
+        unit_id="u-linucb",
+        idempotency_key="req-linucb",
+        context={"features": {"f1": 1.0, "f2": 0.0}},
+    )
+
+    result = engine.assign(job=job, request=request, arms=[_arm("arm_a"), _arm("arm_b")])
+
+    assert result.diagnostics.reason == "disjoint_linucb_policy"
+    assert result.arm_id == "arm_a"
+    assert result.propensity == 1.0
+    assert result.diagnostics.fallback_used is False
+
+
+def test_disjoint_linucb_falls_back_when_features_missing() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.DISJOINT_LINUCB,
+                params={},
+            ),
+        }
+    )
+    request = AssignRequest(
+        workspace_id="ws_demo",
+        job_id="job_1",
+        unit_id="u-linucb-fallback",
+        idempotency_key="req-linucb-fallback",
+        context={},
+    )
+
+    result = engine.assign(job=job, request=request, arms=[_arm("arm_a"), _arm("arm_b")])
+
+    assert result.diagnostics.reason == "disjoint_linucb_policy"
+    assert result.diagnostics.fallback_used is True
+    assert result.diagnostics.scores == {"arm_a": 0.5, "arm_b": 0.5}
