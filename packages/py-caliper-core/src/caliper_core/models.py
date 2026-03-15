@@ -63,6 +63,7 @@ class PolicyFamily(StrEnum):
     UCB1 = "ucb1"
     THOMPSON_SAMPLING = "thompson_sampling"
     DISJOINT_LINUCB = "disjoint_linucb"
+    VW_CB_ADF = "vw_cb_adf"
 
 
 class GuardrailAction(StrEnum):

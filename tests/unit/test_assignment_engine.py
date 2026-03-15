@@ -347,3 +347,76 @@ def test_disjoint_linucb_falls_back_when_features_missing() -> None:
     assert result.diagnostics.reason == "disjoint_linucb_policy"
     assert result.diagnostics.fallback_used is True
     assert result.diagnostics.scores == {"arm_a": 0.5, "arm_b": 0.5}
+
+
+def test_vw_cb_adf_scaffold_respects_prior_bias_in_distribution() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.VW_CB_ADF,
+                params={
+                    "arm_priors": {"arm_a": 3.0, "arm_b": 0.0},
+                    "temperature": 0.7,
+                },
+            ),
+        }
+    )
+    arms = [_arm("arm_a"), _arm("arm_b")]
+
+    counts: Counter[str] = Counter()
+    for idx in range(2000):
+        request = AssignRequest(
+            workspace_id="ws_demo",
+            job_id="job_1",
+            unit_id=f"u{idx}",
+            idempotency_key=f"req-{idx}",
+            context={
+                "shared_features": {"hour": 12.0, "segment": 2.0},
+                "arm_features": {
+                    "arm_a": {"cost": 1.0, "quality": 0.8},
+                    "arm_b": {"cost": 0.5, "quality": 0.3},
+                },
+            },
+        )
+        result = engine.assign(job=job, request=request, arms=arms)
+        counts[result.arm_id] += 1
+
+    assert counts["arm_a"] > counts["arm_b"]
+    assert 0.75 < (counts["arm_a"] / 2000) < 0.99
+
+
+def test_vw_cb_adf_scaffold_emits_probabilities_and_reason() -> None:
+    engine = AssignmentEngine()
+    job = _job().model_copy(
+        update={
+            "job_id": "job_1",
+            "policy_spec": PolicySpec(
+                policy_family=PolicyFamily.VW_CB_ADF,
+                params={"temperature": 1.0},
+            ),
+        }
+    )
+    request = AssignRequest(
+        workspace_id="ws_demo",
+        job_id="job_1",
+        unit_id="u-vw",
+        idempotency_key="req-vw",
+        context={
+            "shared_features": {"hour": 8.0},
+            "arm_features": {
+                "arm_a": {"quality": 0.9},
+                "arm_b": {"quality": 0.2},
+            },
+        },
+    )
+
+    result = engine.assign(job=job, request=request, arms=[_arm("arm_a"), _arm("arm_b")])
+
+    assert result.diagnostics.reason == "vw_cb_adf_policy_backend_scaffold"
+    assert set(result.diagnostics.scores.keys()) == {"arm_a", "arm_b"}
+    assert abs(sum(result.diagnostics.scores.values()) - 1.0) < 1e-9
+    assert result.diagnostics.fallback_used is False
+    assert 0.0 < result.propensity <= 1.0
+    assert result.propensity == result.diagnostics.scores[result.arm_id]
