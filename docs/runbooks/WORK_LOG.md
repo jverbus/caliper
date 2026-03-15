@@ -310,3 +310,5 @@
 - Added integration coverage for job listing API and operator UI workspace filtering (`tests/integration/test_api_job_crud.py`, `tests/integration/test_operator_ui.py`).
 - Documented minimal operator UI runtime and acceptance mapping (`docs/execution/MINIMAL_OPERATOR_UI.md`).
 - Opened PR #53 for PV1-008 (`chunk/pv1-008-minimal-operator-ui`).
+- Started chunk **post-v1 C2 metric semantics hardening**.
+- Opened PR #55 for C2 (`chunk/postv1-c2-metric-semantics`).

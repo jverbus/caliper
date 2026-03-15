@@ -156,8 +156,35 @@ class RewardEngine:
 
     def _collect_metrics(self, outcome: OutcomeCreate) -> dict[str, float]:
         metrics: dict[str, float] = {}
+        numerator_by_metric: dict[str, float] = {}
+        denominator_by_metric: dict[str, float] = {}
+
         for event in outcome.events:
-            metrics[event.outcome_type] = metrics.get(event.outcome_type, 0.0) + event.value
+            kind = event.metric_kind.strip().lower()
+            metric = event.outcome_type
+            if kind in {"value", "count"}:
+                metrics[metric] = metrics.get(metric, 0.0) + event.value
+                continue
+            if kind == "rate":
+                if event.denominator is None or event.denominator <= 0:
+                    raise RewardFormulaError(
+                        f"Rate metric '{metric}' requires a positive denominator"
+                    )
+                numerator_by_metric[metric] = numerator_by_metric.get(metric, 0.0) + (
+                    event.value * event.denominator
+                )
+                denominator_by_metric[metric] = (
+                    denominator_by_metric.get(metric, 0.0) + event.denominator
+                )
+                continue
+            raise RewardFormulaError(f"Unsupported metric_kind: {event.metric_kind!r}")
+
+        for metric, numerator in numerator_by_metric.items():
+            denominator = denominator_by_metric[metric]
+            metrics[metric] = numerator / denominator
+            metrics[f"{metric}__numerator"] = numerator
+            metrics[f"{metric}__denominator"] = denominator
+
         return metrics
 
     def _evaluate_expression(self, expression: str, metrics: dict[str, float]) -> float:
