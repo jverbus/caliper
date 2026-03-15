@@ -293,3 +293,9 @@
 - Added unit coverage for ClickHouse schema/ingest/query contract behavior (`tests/unit/test_clickhouse_analytics_store.py`).
 - Documented ClickHouse analytics backend contract and acceptance mapping (`docs/execution/CLICKHOUSE_ANALYTICS_BACKEND.md`).
 - Opened PR #51 for PV1-006 (`chunk/pv1-006-clickhouse-analytics-backend`).
+- CI for PR #51 passed and chunk **PV1-006 ClickHouse analytics backend** was merged (`028941b`).
+- Started chunk **PV1-007 Temporal scheduler backend**.
+- Added scheduler backend abstractions and a Temporal dispatch backend for due worker tasks (`apps/worker/scheduler_backends.py`, `apps/worker/loop.py`).
+- Added worker CLI/runtime backend selection with Temporal target/namespace/task-queue/workflow flags (`apps/worker/main.py`).
+- Added unit/integration coverage for Temporal dispatch payload shaping and worker backend dispatch audit behavior (`tests/unit/test_temporal_scheduler_backend.py`, `tests/integration/test_worker_scheduler.py`).
+- Documented Temporal scheduler backend contract and runtime notes (`docs/execution/TEMPORAL_SCHEDULER_BACKEND.md`).
