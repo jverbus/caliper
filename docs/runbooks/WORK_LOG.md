@@ -312,3 +312,8 @@
 - Opened PR #53 for PV1-008 (`chunk/pv1-008-minimal-operator-ui`).
 - Started chunk **post-v1 C2 metric semantics hardening**.
 - Opened PR #55 for C2 (`chunk/postv1-c2-metric-semantics`).
+- CI for PR #55 passed and chunk **post-v1 C2 metric semantics hardening** was merged (`18460dd`).
+- Started chunk **post-v1 C3 embedded/service parity for exposure+outcome flow**.
+- Hardened embedded SDK exposure/outcome ingest parity with service mode by adding decision-context validation, idempotent replay, event-ledger appends, and audit records (`packages/py-sdk/src/caliper_sdk/client.py`).
+- Added SDK unit coverage for exposure/outcome idempotency, single-write ledger/audit behavior under replay, and context-mismatch validation (`tests/unit/test_python_sdk.py`).
+- Documented C3 parity behavior and acceptance mapping (`docs/execution/C3_EMBEDDED_SERVICE_PARITY_EXPOSURE_OUTCOME.md`).

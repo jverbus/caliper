@@ -247,25 +247,92 @@ def test_embedded_client_core_flow(tmp_path: Any) -> None:
     )
     assert decision.arm_id == "arm-a"
 
-    client.log_exposure(
-        ExposureCreate(
-            workspace_id=job.workspace_id,
-            job_id=job.job_id,
-            decision_id=decision.decision_id,
-            unit_id="u1",
-        )
+    exposure_payload = ExposureCreate(
+        workspace_id=job.workspace_id,
+        job_id=job.job_id,
+        decision_id=decision.decision_id,
+        unit_id="u1",
     )
-    client.log_outcome(
-        OutcomeCreate(
-            workspace_id=job.workspace_id,
-            job_id=job.job_id,
-            decision_id=decision.decision_id,
-            unit_id="u1",
-            events=[OutcomeEvent(outcome_type="signup", value=1.0)],
-        )
+    first_exposure = client.log_exposure(exposure_payload)
+    second_exposure = client.log_exposure(exposure_payload)
+    assert first_exposure == second_exposure
+
+    outcome_payload = OutcomeCreate(
+        workspace_id=job.workspace_id,
+        job_id=job.job_id,
+        decision_id=decision.decision_id,
+        unit_id="u1",
+        events=[OutcomeEvent(outcome_type="signup", value=1.0)],
     )
+    first_outcome = client.log_outcome(outcome_payload)
+    second_outcome = client.log_outcome(outcome_payload)
+    assert first_outcome == second_outcome
+
     report = client.generate_report(
         job_id=job.job_id,
         payload=ReportGenerateRequest(workspace_id=job.workspace_id),
     )
     assert report.job_id == job.job_id
+
+    events = client._repository.replay(workspace_id=job.workspace_id, job_id=job.job_id)
+    event_types = [event.event_type for event in events]
+    assert event_types.count("decision.exposed") == 1
+    assert event_types.count("outcome.observed") == 1
+
+    audit_actions = [
+        record.action
+        for record in client._repository.list_audit(
+            workspace_id=job.workspace_id,
+            job_id=job.job_id,
+        )
+    ]
+    assert "decision.exposed" in audit_actions
+    assert "outcome.observed" in audit_actions
+
+
+def test_embedded_client_exposure_and_outcome_validate_decision_context(tmp_path: Any) -> None:
+    client = EmbeddedCaliperClient(db_url=f"sqlite:///{tmp_path}/sdk.db")
+    job = client.create_job(_job())
+    client.add_arms(
+        job_id=job.job_id,
+        payload=ArmBulkRegisterRequest(
+            workspace_id=job.workspace_id,
+            arms=[
+                ArmInput(
+                    arm_id="arm-a",
+                    name="Arm A",
+                    arm_type=ArmType.ARTIFACT,
+                    payload_ref="file://arm-a",
+                )
+            ],
+        ),
+    )
+    decision = client.assign(
+        AssignRequest(
+            workspace_id=job.workspace_id,
+            job_id=job.job_id,
+            unit_id="u1",
+            idempotency_key="assign-1",
+        )
+    )
+
+    with pytest.raises(ValueError, match="Decision context does not match"):
+        client.log_exposure(
+            ExposureCreate(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id="u2",
+            )
+        )
+
+    with pytest.raises(ValueError, match="Decision context does not match"):
+        client.log_outcome(
+            OutcomeCreate(
+                workspace_id=job.workspace_id,
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id="u2",
+                events=[OutcomeEvent(outcome_type="signup", value=1.0)],
+            )
+        )
