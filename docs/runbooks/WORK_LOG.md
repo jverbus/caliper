@@ -270,3 +270,9 @@
 - Added deterministic `VWPolicyBackend` scaffold with CB-ADF example shaping, optional arm priors, and softmax-normalized probability outputs (`packages/py-caliper-policies/src/caliper_policies/vw_backend.py`, `packages/py-caliper-policies/src/caliper_policies/__init__.py`).
 - Added unit coverage for VW scaffold distribution bias and diagnostics/propensity contract (`tests/unit/test_assignment_engine.py`).
 - Documented VW backend scaffold policy contract and request-context expectations (`docs/execution/VW_POLICY_BACKEND.md`).
+- CI for PR #47 passed and chunk **PV1-002 VW policy backend** was merged (`94e1508`).
+- Started chunk **PV1-003 OBP integration**.
+- Added OBP replay integration seam with `prepare_obp_data` dataset shaping, optional-policy action-distribution extraction, and estimator runner helper for IPW/DR (`packages/py-caliper-ope/src/caliper_ope/estimators.py`, `packages/py-caliper-ope/src/caliper_ope/__init__.py`).
+- Added unit coverage for OBP payload shaping, required evaluation-policy context contract, and estimator selection/call-path behavior (`tests/unit/test_obp_integration.py`).
+- Documented OBP integration contract and install/runtime notes (`docs/execution/OBP_INTEGRATION.md`).
+- Checkpoint: PR #48 (`chunk/pv1-003-obp-integration`) is open; CI currently running (quality in progress, postgres-smoke+demos-smoke passed).
