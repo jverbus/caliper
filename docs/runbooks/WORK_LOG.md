@@ -333,3 +333,5 @@
 - Added C5 execution note documenting replay/OBP/shadow-diff gating contract (`docs/execution/C5_REPLAY_OBP_SHADOW_DIFF_PROMOTION_GATE.md`).
 - Validation before PR push: `make lint && make typecheck && make test` (all passed).
 - Opened PR #58 for C5 (`chunk/postv1-c5-replay-obp-shadow-diff-gate`).
+- CI for PR #58 passed and chunk **post-v1 C5 replay/OBP/shadow-vs-live diff + promotion-gate hardening** was merged (`f57d3ad`).
+- Stop condition reached: C2–C5 are merged to `master`; disabled cron job `caliper-correctness-orchestrator` (`67ce6623-3af7-4bb6-bd4e-80a4c5a312a2`).
