@@ -166,3 +166,108 @@ def test_report_summary_uses_arm_scoped_exposure_and_outcome_counts() -> None:
     assert summary_by_arm["arm-b"].exposures == 1
     assert summary_by_arm["arm-a"].outcomes == 1
     assert summary_by_arm["arm-b"].outcomes == 0
+
+
+def test_report_includes_srm_and_leader_significance_diagnostics() -> None:
+    job = _job()
+
+    decisions: list[AssignResult] = []
+    exposures: list[ExposureCreate] = []
+    outcomes: list[OutcomeCreate] = []
+
+    for idx in range(20):
+        decision = AssignResult(
+            workspace_id="ws-test",
+            job_id=job.job_id,
+            unit_id=f"a-{idx}",
+            arm_id="arm-a",
+            propensity=0.5,
+            policy_family=PolicyFamily.FIXED_SPLIT,
+            policy_version="v1",
+            diagnostics=DecisionDiagnostics(),
+            context={"country": "US"},
+        )
+        decisions.append(decision)
+        exposures.append(
+            ExposureCreate(
+                workspace_id="ws-test",
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+            )
+        )
+        outcomes.append(
+            OutcomeCreate(
+                workspace_id="ws-test",
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+                events=[
+                    OutcomeEvent(
+                        outcome_type="signup",
+                        value=1.0 if idx < 14 else 0.0,
+                    )
+                ],
+            )
+        )
+
+    for idx in range(20):
+        decision = AssignResult(
+            workspace_id="ws-test",
+            job_id=job.job_id,
+            unit_id=f"b-{idx}",
+            arm_id="arm-b",
+            propensity=0.5,
+            policy_family=PolicyFamily.FIXED_SPLIT,
+            policy_version="v1",
+            diagnostics=DecisionDiagnostics(),
+            context={"country": "US"},
+        )
+        decisions.append(decision)
+        exposures.append(
+            ExposureCreate(
+                workspace_id="ws-test",
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+            )
+        )
+        outcomes.append(
+            OutcomeCreate(
+                workspace_id="ws-test",
+                job_id=job.job_id,
+                decision_id=decision.decision_id,
+                unit_id=decision.unit_id,
+                events=[
+                    OutcomeEvent(
+                        outcome_type="signup",
+                        value=1.0 if idx < 5 else 0.0,
+                    )
+                ],
+            )
+        )
+
+    report = ReportGenerator().generate(
+        job=job,
+        arms=_arms(job.job_id),
+        decisions=decisions,
+        exposures=exposures,
+        outcomes=outcomes,
+        guardrails=[],
+    )
+
+    assert report.statistics.srm.applicable is True
+    assert report.statistics.srm.p_value is not None
+    assert report.statistics.srm.alert is False
+
+    significance = report.statistics.leader_significance
+    assert significance.applicable is True
+    assert significance.leader_arm_id == "arm-a"
+    assert significance.challenger_arm_id == "arm-b"
+    assert significance.p_value is not None
+    assert significance.statistically_significant is True
+
+    assert "## Statistical diagnostics" in report.markdown
+    assert "SRM check:" in report.markdown
+    assert "Leader significance:" in report.markdown
+    assert "<h2>Statistical diagnostics</h2>" in report.html

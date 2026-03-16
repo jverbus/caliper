@@ -329,6 +329,42 @@ class Recommendation(BaseModel):
     detail: str
 
 
+class SRMDiagnostics(BaseModel):
+    applicable: bool = False
+    reason: str | None = None
+    expected_assignment_share: dict[str, float] = Field(default_factory=dict)
+    observed_assignments: dict[str, int] = Field(default_factory=dict)
+    chi_square: float | None = None
+    p_value: float | None = None
+    threshold: float = 0.01
+    alert: bool = False
+    method: str = "chi_square_monte_carlo"
+
+
+class LeaderSignificanceDiagnostics(BaseModel):
+    applicable: bool = False
+    reason: str | None = None
+    leader_arm_id: str | None = None
+    challenger_arm_id: str | None = None
+    metric: str = "reward_mean"
+    leader_mean: float | None = None
+    challenger_mean: float | None = None
+    observed_diff: float | None = None
+    p_value: float | None = None
+    alpha: float = 0.05
+    statistically_significant: bool = False
+    method: str = "permutation_test"
+    iterations: int = 0
+    sample_sizes: dict[str, int] = Field(default_factory=dict)
+
+
+class StatisticalDiagnostics(BaseModel):
+    srm: SRMDiagnostics = Field(default_factory=SRMDiagnostics)
+    leader_significance: LeaderSignificanceDiagnostics = Field(
+        default_factory=LeaderSignificanceDiagnostics
+    )
+
+
 class ReportPayload(BaseModel):
     report_id: str = Field(default_factory=lambda: new_id("rpt"))
     workspace_id: str
@@ -339,5 +375,6 @@ class ReportPayload(BaseModel):
     guardrails: list[dict[str, Any]] = Field(default_factory=list)
     segment_findings: list[SegmentFinding] = Field(default_factory=list)
     recommendations: list[Recommendation] = Field(default_factory=list)
+    statistics: StatisticalDiagnostics = Field(default_factory=StatisticalDiagnostics)
     markdown: str
     html: str
