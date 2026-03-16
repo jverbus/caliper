@@ -36,7 +36,8 @@ from caliper_sdk import EmbeddedCaliperClient, ServiceCaliperClient
 from caliper_storage import SQLRepository, build_engine, init_db, make_session_factory
 from caliper_storage.sqlalchemy_models import ScheduledTaskRow
 from sqlalchemy.orm import Session, sessionmaker
-from worker.loop import WorkerLoop
+
+from apps.worker.loop import WorkerLoop
 
 type DemoClient = EmbeddedCaliperClient | ServiceCaliperClient
 

@@ -1,29 +1,29 @@
 {
-  "report_id": "rpt_9086bcbb9d4d",
+  "report_id": "rpt_b2338348aba6",
   "workspace_id": "ws-web-demo",
-  "job_id": "job_cf6efcd51345",
-  "generated_at": "2026-03-14T20:08:54.448358Z",
+  "job_id": "job_001c42c10bba",
+  "generated_at": "2026-03-16T01:33:43.997807Z",
   "leaders": [
     {
-      "arm_id": "landing-a",
-      "assignments": 7,
-      "exposures": 12,
-      "outcomes": 4,
-      "avg_reward": 0.0,
-      "assignment_share": 0.5833333333333334
+      "arm_id": "landing-b",
+      "assignments": 4,
+      "exposures": 4,
+      "outcomes": 7,
+      "avg_reward": 0.6,
+      "assignment_share": 0.3333333333333333
     },
     {
-      "arm_id": "landing-b",
-      "assignments": 5,
-      "exposures": 12,
-      "outcomes": 8,
-      "avg_reward": 0.0,
-      "assignment_share": 0.4166666666666667
+      "arm_id": "landing-a",
+      "assignments": 8,
+      "exposures": 8,
+      "outcomes": 4,
+      "avg_reward": 0.3,
+      "assignment_share": 0.6666666666666666
     }
   ],
   "traffic_shifts": [
-    "landing-a: -3 assignments in later window",
-    "landing-b: +3 assignments in later window"
+    "landing-a: +2 assignments in later window",
+    "landing-b: -2 assignments in later window"
   ],
   "guardrails": [],
   "segment_findings": [
@@ -41,13 +41,13 @@
   "recommendations": [
     {
       "title": "Promote current leader",
-      "detail": "Arm 'landing-a' has the strongest observed average reward."
+      "detail": "Promote arm 'landing-b' cautiously (low confidence): avg reward 0.6000 at 33.3% traffic share."
     }
   ],
-  "markdown": "# Caliper report for Web demo (embedded)\n\n## Leaders\n- `landing-a` avg_reward=0.0000 share=58.33%\n- `landing-b` avg_reward=0.0000 share=41.67%\n\n## Traffic shifts\n- landing-a: -3 assignments in later window\n- landing-b: +3 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- country=US (7 observations)\n- device=mobile (7 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'landing-a' has the strongest observed average reward.",
-  "html": "<html><body><pre># Caliper report for Web demo (embedded)\n\n## Leaders\n- `landing-a` avg_reward=0.0000 share=58.33%\n- `landing-b` avg_reward=0.0000 share=41.67%\n\n## Traffic shifts\n- landing-a: -3 assignments in later window\n- landing-b: +3 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- country=US (7 observations)\n- device=mobile (7 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'landing-a' has the strongest observed average reward.</pre></body></html>",
+  "markdown": "# Caliper report: Web demo (embedded)\n\n## Summary\n- Job ID: `job_001c42c10bba`\n- Workspace: `ws-web-demo`\n- Total assignments: 12\n- Total exposures: 12\n- Total outcome events: 11\n\n## Leaders\n| Arm | Avg reward | Assignment share | Assignments |\n| --- | ---: | ---: | ---: |\n| `landing-b` | 0.6000 | 33.33% | 4 |\n| `landing-a` | 0.3000 | 66.67% | 8 |\n\n## Traffic shifts\n- landing-a: +2 assignments in later window\n- landing-b: -2 assignments in later window\n\n## Guardrails\n- No guardrail events.\n\n## Segment findings\n- country=US (7 observations)\n- device=mobile (7 observations)\n\n## Recommendations\n- **Promote current leader:** Promote arm 'landing-b' cautiously (low confidence): avg reward 0.6000 at 33.3% traffic share.",
+  "html": "<!doctype html><html><head><meta charset='utf-8'><title>Caliper report</title></head><body><h1>Caliper report: Web demo (embedded)</h1><h2>Summary</h2><ul><li>Job ID: <code>job_001c42c10bba</code></li><li>Workspace: <code>ws-web-demo</code></li><li>Total assignments: 12</li><li>Total exposures: 12</li><li>Total outcome events: 11</li></ul><h2>Leaders</h2><table border='1' cellspacing='0' cellpadding='6'><thead><tr><th>Arm</th><th>Avg reward</th><th>Assignment share</th><th>Assignments</th></tr></thead><tbody><tr><td><code>landing-b</code></td><td>0.6000</td><td>33.33%</td><td>4</td></tr><tr><td><code>landing-a</code></td><td>0.3000</td><td>66.67%</td><td>8</td></tr></tbody></table><h2>Traffic shifts</h2><ul><li>landing-a: +2 assignments in later window</li><li>landing-b: -2 assignments in later window</li></ul><h2>Guardrails</h2><ul><li>No guardrail events.</li></ul><h2>Segment findings</h2><ul><li>country=US (7 observations)</li><li>device=mobile (7 observations)</li></ul><h2>Recommendations</h2><ul><li><strong>Promote current leader:</strong> Promote arm 'landing-b' cautiously (low confidence): avg reward 0.6000 at 33.3% traffic share.</li></ul></body></html>",
   "assignment_counts": {
-    "landing-a": 7,
-    "landing-b": 5
+    "landing-a": 8,
+    "landing-b": 4
   }
 }

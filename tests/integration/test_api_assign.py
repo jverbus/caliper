@@ -3,10 +3,11 @@ from __future__ import annotations
 from uuid import uuid4
 
 import pytest
-from api import dependencies
-from api.main import create_app
 from caliper_storage import SQLRepository
 from fastapi.testclient import TestClient
+
+from apps.api import dependencies
+from apps.api.main import create_app
 
 
 def _reset_dependency_caches() -> None:

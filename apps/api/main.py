@@ -4,13 +4,6 @@ import hashlib
 import json
 from typing import Annotated
 
-from api.dependencies import (
-    get_engine,
-    get_repository,
-    health_check,
-    readiness_check,
-    require_api_token,
-)
 from caliper_core.context import ContextValidationError, validate_and_redact_context
 from caliper_core.events import EventEnvelope
 from caliper_core.models import (
@@ -46,6 +39,14 @@ from caliper_reports import ReportGenerator
 from caliper_storage import SQLRepository
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Engine
+
+from apps.api.dependencies import (
+    get_engine,
+    get_repository,
+    health_check,
+    readiness_check,
+    require_api_token,
+)
 
 _JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.DRAFT: {JobStatus.SHADOW, JobStatus.ACTIVE, JobStatus.ARCHIVED},
@@ -162,7 +163,7 @@ def _contextual_gate_failures(
             "promotion checks must be run for this snapshot before contextual activation"
         )
     else:
-        latest_checks = gate_checks[0]
+        latest_checks = gate_checks[-1]
         if latest_checks.metadata.get("shadow_diff_ready") is not True:
             failures.append("shadow-vs-live diff check did not pass")
         if latest_checks.metadata.get("replay_ready") is not True:

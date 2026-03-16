@@ -59,9 +59,9 @@ def _build_demo_job(*, workspace_id: str, name: str) -> Job:
         name=name,
         surface_type=SurfaceType.WEB,
         objective_spec=ObjectiveSpec(
-            reward_formula="(0.30 * click_rate) + conversion_rate",
-            penalties=["0.25 * bounce_rate"],
-            secondary_metrics=["click", "conversion", "bounce_rate"],
+            reward_formula="(0.30 * click) + conversion",
+            penalties=[],
+            secondary_metrics=["click", "conversion"],
         ),
         guardrail_spec=GuardrailSpec(rules=[]),
         policy_spec=PolicySpec(

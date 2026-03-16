@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from worker.scheduler_backends import ScheduledTaskDispatch, TemporalSchedulerBackend
+from apps.worker.scheduler_backends import ScheduledTaskDispatch, TemporalSchedulerBackend
 
 
 def test_temporal_scheduler_backend_dispatch_shapes_workflow_payload() -> None:

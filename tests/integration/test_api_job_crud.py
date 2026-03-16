@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from api import dependencies
-from api.main import create_app
 from caliper_storage.sqlalchemy_models import AuditRow
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+
+from apps.api import dependencies
+from apps.api.main import create_app
 
 
 def _reset_dependency_caches() -> None:

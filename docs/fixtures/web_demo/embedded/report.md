@@ -1,12 +1,21 @@
-# Caliper report for Web demo (embedded)
+# Caliper report: Web demo (embedded)
+
+## Summary
+- Job ID: `job_001c42c10bba`
+- Workspace: `ws-web-demo`
+- Total assignments: 12
+- Total exposures: 12
+- Total outcome events: 11
 
 ## Leaders
-- `landing-a` avg_reward=0.0000 share=58.33%
-- `landing-b` avg_reward=0.0000 share=41.67%
+| Arm | Avg reward | Assignment share | Assignments |
+| --- | ---: | ---: | ---: |
+| `landing-b` | 0.6000 | 33.33% | 4 |
+| `landing-a` | 0.3000 | 66.67% | 8 |
 
 ## Traffic shifts
-- landing-a: -3 assignments in later window
-- landing-b: +3 assignments in later window
+- landing-a: +2 assignments in later window
+- landing-b: -2 assignments in later window
 
 ## Guardrails
 - No guardrail events.
@@ -16,4 +25,4 @@
 - device=mobile (7 observations)
 
 ## Recommendations
-- **Promote current leader:** Arm 'landing-a' has the strongest observed average reward.
+- **Promote current leader:** Promote arm 'landing-b' cautiously (low confidence): avg reward 0.6000 at 33.3% traffic share.

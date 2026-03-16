@@ -34,6 +34,7 @@ package = false
 addopts = "-q"
 testpaths = ["tests"]
 pythonpath = [
+  ".",
   "packages/py-caliper-core/src",
   "packages/py-caliper-storage/src",
   "packages/py-caliper-events/src",
@@ -43,7 +44,6 @@ pythonpath = [
   "packages/py-caliper-adapters/src",
   "packages/py-caliper-ope/src",
   "packages/py-sdk/src",
-  "apps",
 ]
 
 [tool.ruff]
@@ -63,9 +63,9 @@ no_implicit_optional = true
 pretty = true
 explicit_package_bases = true
 mypy_path = [
+  ".",
   "packages/py-caliper-core/src",
   "packages/py-caliper-storage/src",
   "packages/py-caliper-events/src",
   "packages/py-sdk/src",
-  "apps",
 ]

@@ -20,7 +20,8 @@ from caliper_storage import SQLRepository
 from caliper_storage.sqlalchemy_models import JobRow, ScheduledTaskRow
 from sqlalchemy import select
 from sqlalchemy.orm import Session, sessionmaker
-from worker.scheduler_backends import ScheduledTaskDispatch, SchedulerBackend
+
+from apps.worker.scheduler_backends import ScheduledTaskDispatch, SchedulerBackend
 
 
 @dataclass(frozen=True)
