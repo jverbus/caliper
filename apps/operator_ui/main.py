@@ -3,10 +3,11 @@ from __future__ import annotations
 from html import escape
 from typing import Annotated
 
-from api.dependencies import get_repository
 from caliper_storage.repositories import SQLRepository
 from fastapi import Depends, FastAPI
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+from apps.api.dependencies import get_repository
 
 
 def create_app() -> FastAPI:

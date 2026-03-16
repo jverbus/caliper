@@ -8,9 +8,9 @@ import time
 from collections.abc import Callable
 from typing import Any
 
-from api.dependencies import get_session_factory
-from worker.loop import WorkerLoop
-from worker.scheduler_backends import TemporalSchedulerBackend
+from apps.api.dependencies import get_session_factory
+from apps.worker.loop import WorkerLoop
+from apps.worker.scheduler_backends import TemporalSchedulerBackend
 
 TemporalStarter = Callable[..., Any]
 

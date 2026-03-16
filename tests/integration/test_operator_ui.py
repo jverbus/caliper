@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 import pytest
-from api import dependencies
-from api.main import create_app as create_api_app
 from fastapi.testclient import TestClient
-from operator_ui.main import create_app
+
+from apps.api import dependencies
+from apps.api.main import create_app as create_api_app
+from apps.operator_ui.main import create_app
 
 
 def _reset_dependency_caches() -> None:

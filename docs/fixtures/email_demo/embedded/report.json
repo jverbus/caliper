@@ -1,53 +1,54 @@
 {
-  "report_id": "rpt_c883f1441338",
+  "report_id": "rpt_bc5eb7fcbd7d",
   "workspace_id": "ws-email-demo",
-  "job_id": "job_3988afe71995",
-  "generated_at": "2026-03-14T20:36:50.819439Z",
+  "job_id": "job_a5b8c3fc5479",
+  "generated_at": "2026-03-16T01:33:44.604749Z",
   "leaders": [
     {
       "arm_id": "subject-a",
-      "assignments": 8,
-      "exposures": 10,
-      "outcomes": 24,
+      "assignments": 6,
+      "exposures": 6,
+      "outcomes": 18,
       "avg_reward": 1.0333333333333334,
-      "assignment_share": 0.8
+      "assignment_share": 0.6
     },
     {
       "arm_id": "subject-b",
-      "assignments": 2,
-      "exposures": 10,
-      "outcomes": 4,
-      "avg_reward": -0.35,
-      "assignment_share": 0.2
+      "assignments": 4,
+      "exposures": 4,
+      "outcomes": 8,
+      "avg_reward": -1.0,
+      "assignment_share": 0.4
     }
   ],
   "traffic_shifts": [
-    "No meaningful traffic shift detected between early and late windows."
+    "subject-a: +4 assignments in later window",
+    "subject-b: -4 assignments in later window"
   ],
   "guardrails": [
     {
-      "guardrail_event_id": "gr_71354e3ae4a1",
+      "guardrail_event_id": "gr_0fe7431110c1",
       "metric": "email_unsubscribe",
       "status": "breach",
       "action": "cap",
-      "timestamp": "2026-03-14T20:36:50.796183",
+      "timestamp": "2026-03-16T01:33:44.551651",
       "metadata": {
         "operator": ">",
         "threshold": 0.01,
-        "observed": 0.0625,
+        "observed": 0.2857142857142857,
         "target_arm_id": "subject-b"
       }
     },
     {
-      "guardrail_event_id": "gr_7daa2f89021b",
+      "guardrail_event_id": "gr_f361e2585ef8",
       "metric": "email_unsubscribe",
       "status": "breach",
       "action": "cap",
-      "timestamp": "2026-03-14T20:36:50.814771",
+      "timestamp": "2026-03-16T01:33:44.598458",
       "metadata": {
         "operator": ">",
         "threshold": 0.01,
-        "observed": 0.03571428571428571,
+        "observed": 0.15384615384615385,
         "target_arm_id": "subject-b"
       }
     }
@@ -62,18 +63,18 @@
   "recommendations": [
     {
       "title": "Promote current leader",
-      "detail": "Arm 'subject-a' has the strongest observed average reward."
+      "detail": "Promote arm 'subject-a' cautiously (low confidence): avg reward 1.0333 at 60.0% traffic share."
     },
     {
-      "title": "Review guardrail events",
-      "detail": "2 guardrail events were recorded; validate policy safety posture."
+      "title": "Resolve guardrail alerts before scaling",
+      "detail": "2 guardrail event(s) detected. Keep rollout constrained until breached metrics return to expected ranges."
     }
   ],
-  "markdown": "# Caliper report for Email demo (embedded)\n\n## Leaders\n- `subject-a` avg_reward=1.0333 share=80.00%\n- `subject-b` avg_reward=-0.3500 share=20.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- email_unsubscribe: breach\n- email_unsubscribe: breach\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'subject-a' has the strongest observed average reward.\n- **Review guardrail events:** 2 guardrail events were recorded; validate policy safety posture.",
-  "html": "<html><body><pre># Caliper report for Email demo (embedded)\n\n## Leaders\n- `subject-a` avg_reward=1.0333 share=80.00%\n- `subject-b` avg_reward=-0.3500 share=20.00%\n\n## Traffic shifts\n- No meaningful traffic shift detected between early and late windows.\n\n## Guardrails\n- email_unsubscribe: breach\n- email_unsubscribe: breach\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Arm 'subject-a' has the strongest observed average reward.\n- **Review guardrail events:** 2 guardrail events were recorded; validate policy safety posture.</pre></body></html>",
+  "markdown": "# Caliper report: Email demo (embedded)\n\n## Summary\n- Job ID: `job_a5b8c3fc5479`\n- Workspace: `ws-email-demo`\n- Total assignments: 10\n- Total exposures: 10\n- Total outcome events: 26\n\n## Leaders\n| Arm | Avg reward | Assignment share | Assignments |\n| --- | ---: | ---: | ---: |\n| `subject-a` | 1.0333 | 60.00% | 6 |\n| `subject-b` | -1.0000 | 40.00% | 4 |\n\n## Traffic shifts\n- subject-a: +4 assignments in later window\n- subject-b: -4 assignments in later window\n\n## Guardrails\n- `email_unsubscribe` status=`breach` action=`cap`\n- `email_unsubscribe` status=`breach` action=`cap`\n\n## Segment findings\n- all (10 observations)\n\n## Recommendations\n- **Promote current leader:** Promote arm 'subject-a' cautiously (low confidence): avg reward 1.0333 at 60.0% traffic share.\n- **Resolve guardrail alerts before scaling:** 2 guardrail event(s) detected. Keep rollout constrained until breached metrics return to expected ranges.",
+  "html": "<!doctype html><html><head><meta charset='utf-8'><title>Caliper report</title></head><body><h1>Caliper report: Email demo (embedded)</h1><h2>Summary</h2><ul><li>Job ID: <code>job_a5b8c3fc5479</code></li><li>Workspace: <code>ws-email-demo</code></li><li>Total assignments: 10</li><li>Total exposures: 10</li><li>Total outcome events: 26</li></ul><h2>Leaders</h2><table border='1' cellspacing='0' cellpadding='6'><thead><tr><th>Arm</th><th>Avg reward</th><th>Assignment share</th><th>Assignments</th></tr></thead><tbody><tr><td><code>subject-a</code></td><td>1.0333</td><td>60.00%</td><td>6</td></tr><tr><td><code>subject-b</code></td><td>-1.0000</td><td>40.00%</td><td>4</td></tr></tbody></table><h2>Traffic shifts</h2><ul><li>subject-a: +4 assignments in later window</li><li>subject-b: -4 assignments in later window</li></ul><h2>Guardrails</h2><ul><li><code>email_unsubscribe</code> status=<code>breach</code> action=<code>cap</code></li><li><code>email_unsubscribe</code> status=<code>breach</code> action=<code>cap</code></li></ul><h2>Segment findings</h2><ul><li>all (10 observations)</li></ul><h2>Recommendations</h2><ul><li><strong>Promote current leader:</strong> Promote arm 'subject-a' cautiously (low confidence): avg reward 1.0333 at 60.0% traffic share.</li><li><strong>Resolve guardrail alerts before scaling:</strong> 2 guardrail event(s) detected. Keep rollout constrained until breached metrics return to expected ranges.</li></ul></body></html>",
   "assignment_counts": {
-    "subject-a": 8,
-    "subject-b": 2
+    "subject-a": 6,
+    "subject-b": 4
   },
   "active_arms_by_tranche": {
     "tranche-1": [

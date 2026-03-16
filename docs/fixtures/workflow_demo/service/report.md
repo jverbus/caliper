@@ -1,12 +1,21 @@
-# Caliper report for Workflow demo (service)
+# Caliper report: Workflow demo (service)
+
+## Summary
+- Job ID: `job_203d78261dd1`
+- Workspace: `ws-workflow-demo`
+- Total assignments: 10
+- Total exposures: 10
+- Total outcome events: 40
 
 ## Leaders
-- `arm-accurate` avg_reward=0.2775 share=70.00%
-- `arm-fast` avg_reward=0.2200 share=30.00%
+| Arm | Avg reward | Assignment share | Assignments |
+| --- | ---: | ---: | ---: |
+| `arm-accurate` | 0.2775 | 70.00% | 7 |
+| `arm-fast` | 0.2200 | 30.00% | 3 |
 
 ## Traffic shifts
-- arm-accurate: +3 assignments in later window
-- arm-fast: -3 assignments in later window
+- arm-accurate: -1 assignments in later window
+- arm-fast: +1 assignments in later window
 
 ## Guardrails
 - No guardrail events.
@@ -15,4 +24,4 @@
 - all (10 observations)
 
 ## Recommendations
-- **Promote current leader:** Arm 'arm-accurate' has the strongest observed average reward.
+- **Promote current leader:** Promote arm 'arm-accurate' cautiously (low confidence): avg reward 0.2775 at 70.0% traffic share.

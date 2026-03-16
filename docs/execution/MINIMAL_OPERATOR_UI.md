@@ -12,7 +12,7 @@ Implements a lightweight operator console for quick job visibility without requi
 ## Run
 
 ```bash
-uv run uvicorn operator_ui.main:app --reload --port 8010
+uv run uvicorn apps.operator_ui.main:app --reload --port 8010
 ```
 
 Then open `http://127.0.0.1:8010/jobs`.

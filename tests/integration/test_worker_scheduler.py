@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
-from api import dependencies
 from caliper_core.models import (
     Arm,
     ArmType,
@@ -26,8 +25,10 @@ from caliper_core.models import (
 )
 from caliper_storage import SQLRepository
 from caliper_storage.sqlalchemy_models import ScheduledTaskRow
-from worker.loop import WorkerLoop
-from worker.scheduler_backends import ScheduledTaskDispatch
+
+from apps.api import dependencies
+from apps.worker.loop import WorkerLoop
+from apps.worker.scheduler_backends import ScheduledTaskDispatch
 
 
 def _reset_dependency_caches() -> None:

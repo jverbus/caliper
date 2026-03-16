@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pytest
-from api import dependencies
-from api.main import create_app
 from caliper_storage.sqlalchemy_models import AuditRow
 from fastapi.testclient import TestClient
 from sqlalchemy import select
+
+from apps.api import dependencies
+from apps.api.main import create_app
 
 
 def _reset_dependency_caches() -> None:
@@ -99,9 +100,7 @@ def test_arm_batch_register_and_lifecycle_are_audited(monkeypatch: pytest.Monkey
     with session_factory() as session:
         audit_rows = list(
             session.scalars(
-                select(AuditRow)
-                .where(AuditRow.job_id == job_id)
-                .order_by(AuditRow.audit_id.asc())
+                select(AuditRow).where(AuditRow.job_id == job_id).order_by(AuditRow.audit_id.asc())
             ).all()
         )
 

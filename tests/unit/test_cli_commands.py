@@ -4,8 +4,9 @@ import json
 from typing import Any, ClassVar
 
 import pytest
-from cli.main import app
 from typer.testing import CliRunner
+
+from apps.cli.main import app
 
 
 class _FakeResponse:
@@ -19,9 +20,7 @@ class _FakeResponse:
 
 
 class _FakeClient:
-    requests: ClassVar[
-        list[tuple[str, str, dict[str, Any] | None, dict[str, str], str]]
-    ] = []
+    requests: ClassVar[list[tuple[str, str, dict[str, Any] | None, dict[str, str], str]]] = []
 
     def __init__(self, *, base_url: str, timeout: float, headers: dict[str, str]) -> None:
         self._base_url = base_url
@@ -72,7 +71,7 @@ class _FakeClient:
 
 def test_cli_core_commands(monkeypatch: pytest.MonkeyPatch) -> None:
     _FakeClient.requests.clear()
-    monkeypatch.setattr("cli.main.httpx.Client", _FakeClient)
+    monkeypatch.setattr("apps.cli.main.httpx.Client", _FakeClient)
     runner = CliRunner()
 
     create = runner.invoke(
