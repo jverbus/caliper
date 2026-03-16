@@ -345,3 +345,8 @@
 - Added integration coverage for both orchestrators (`tests/integration/test_demo_orchestrators.py`).
 - Added operator docs for orchestrator usage and artifacts (`docs/execution/DEMO_ORCHESTRATORS.md`, `README.md`, `Makefile`).
 - Validation before PR push: `make lint && make typecheck && make test` and dry-run command checks for both new top-level demos.
+- Opened PR #60 for post-v1 demo orchestrators (`chunk/postv1-demo-orchestrators-landing-email`).
+- CI for PR #60 passed and chunk **post-v1 demo orchestrators (landing + email)** was merged (`2ff6666`).
+- Started chunk **post-v1 demo orchestrator retry-safe idempotency keys**.
+- Fixed landing/email dry-run rerun failure by scoping idempotency keys with `job_id` in both orchestrators (`scripts/run_landing_page_demo.py`, `scripts/run_email_demo.py`).
+- Validation before PR push: `make lint && make typecheck && make test` and dry-run command checks for both top-level demos.
