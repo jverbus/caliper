@@ -110,4 +110,11 @@ Top-level scripts for automated demo orchestration:
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run`
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live`
 
+Mode semantics (current):
+
+- Landing `dry_run`: synthetic in-process simulation.
+- Landing `live`: local server + synthetic closed-loop traffic (not external visitor traffic yet).
+- Email `dry_run`: synthetic delivery provider and synthetic outcome events.
+- Email `live`: **real Gmail SMTP send path only**; command fails fast if Gmail credentials are missing.
+
 Each run writes report artifacts and `winner_summary.json` under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.

@@ -54,10 +54,9 @@ def run_landing_page_demo(
             policy_family=PolicyFamily.THOMPSON_SAMPLING,
             params={
                 "seed": 101,
-                "arms": {
-                    f"landing-{i}": {"successes": 12 + i, "failures": 14 - min(i, 10)}
-                    for i in range(variant_count)
-                },
+                # Thompson engine consumes per-arm alpha/beta priors.
+                "alpha": {f"landing-{i}": 12.0 + i for i in range(variant_count)},
+                "beta": {f"landing-{i}": 14.0 - min(i, 10) for i in range(variant_count)},
             },
         ),
         segment_spec=SegmentSpec(dimensions=["country", "device"]),
@@ -169,6 +168,7 @@ def run_landing_page_demo(
         "variant_count": variant_count,
         "winner_arm_id": winner,
         "assignment_counts": assignments,
+        "traffic_source": ("synthetic_closed_loop" if mode == "live" else "synthetic_simulation"),
         "report_id": report_dict["report_id"],
         "job_id": report_dict["job_id"],
         "variants_dir": str(variants_dir),
@@ -188,7 +188,16 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Run landing page demo orchestration")
     parser.add_argument("--topic", required=True)
     parser.add_argument("--variant-count", type=int, default=5)
-    parser.add_argument("--mode", choices=["dry_run", "live"], default="dry_run")
+    parser.add_argument(
+        "--mode",
+        choices=["dry_run", "live"],
+        default="dry_run",
+        help=(
+            "dry_run = in-process synthetic simulation; "
+            "live = local server + synthetic closed-loop traffic "
+            "(external traffic mode follows in delta plan)"
+        ),
+    )
     parser.add_argument("--db-url", default="sqlite:///./data/landing-page-demo.db")
     parser.add_argument("--output-root", default="reports/landing_page_demo")
     args = parser.parse_args()
