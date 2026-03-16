@@ -190,10 +190,9 @@ def run_email_demo(
             policy_family=PolicyFamily.THOMPSON_SAMPLING,
             params={
                 "seed": 77,
-                "arms": {
-                    f"subject-{i}": {"successes": 10 + i, "failures": 10 + (variant_count - i)}
-                    for i in range(variant_count)
-                },
+                # Thompson engine consumes per-arm alpha/beta priors.
+                "alpha": {f"subject-{i}": 10.0 + i for i in range(variant_count)},
+                "beta": {f"subject-{i}": 10.0 + (variant_count - i) for i in range(variant_count)},
             },
             update_cadence=UpdateCadence(mode="periodic", seconds=300),
         ),
@@ -226,9 +225,19 @@ def run_email_demo(
         can_send_supplier=lambda: _job_sendable(repository, job_id=job_id),
     )
 
-    gmail_provider = GmailProvider.from_env() if mode == "live" else None
-    provider: Any = gmail_provider if gmail_provider is not None else DryRunProvider()
-    provider_mode = "gmail" if gmail_provider is not None else "dry-run-seam"
+    if mode == "live":
+        gmail_provider = GmailProvider.from_env()
+        if gmail_provider is None:
+            msg = (
+                "Live mode requires Gmail SMTP credentials. Set GMAIL_SMTP_USER and "
+                "GMAIL_SMTP_APP_PASSWORD (and optionally GMAIL_SMTP_FROM)."
+            )
+            raise ValueError(msg)
+        provider: Any = gmail_provider
+        provider_mode = "gmail"
+    else:
+        provider = DryRunProvider()
+        provider_mode = "dry-run-seam"
 
     assignment_counts: dict[str, int] = {f"subject-{i}": 0 for i in range(variant_count)}
     active_arms_by_tranche: dict[str, list[str]] = {}
@@ -352,7 +361,15 @@ def main() -> None:
     parser.add_argument("--topic", required=True)
     parser.add_argument("--recipients", required=True, help="Comma-separated recipient emails")
     parser.add_argument("--variant-count", type=int, default=5)
-    parser.add_argument("--mode", choices=["dry_run", "live"], default="dry_run")
+    parser.add_argument(
+        "--mode",
+        choices=["dry_run", "live"],
+        default="dry_run",
+        help=(
+            "dry_run = synthetic provider/events; "
+            "live = real Gmail SMTP send path (fails fast if credentials are missing)"
+        ),
+    )
     parser.add_argument("--db-url", default="sqlite:///./data/email-orchestrator-demo.db")
     parser.add_argument("--output-root", default="reports/email_demo")
     args = parser.parse_args()

@@ -15,8 +15,9 @@ Behavior:
 
 - Generates `variant_count` landing page artifacts (HTML files)
 - Registers variants as arms and runs request-time assignment + telemetry
-- In `live` mode, starts a local HTTP server and fetches served variant pages during traffic simulation
-- Generates report artifacts and `winner_summary.json`
+- `dry_run` mode uses in-process synthetic simulation
+- `live` mode currently starts a local HTTP server and runs synthetic closed-loop traffic against served pages (external-visitor traffic mode follows in the next delta chunk)
+- Generates report artifacts and `winner_summary.json` (including `traffic_source`)
 
 Output:
 
@@ -37,10 +38,11 @@ Behavior:
 
 - Generates `variant_count` email subject variants and registers as arms
 - Uses tranche planning + provider seam (`DryRunProvider`)
-- Includes Gmail provider scaffold (`GmailProvider`) activated in `live` mode when env is configured:
-  - `GMAIL_SMTP_USER`
-  - `GMAIL_SMTP_APP_PASSWORD`
-  - optional `GMAIL_SMTP_FROM`
+- Includes Gmail provider scaffold (`GmailProvider`) for real sends in `live` mode:
+  - required: `GMAIL_SMTP_USER`
+  - required: `GMAIL_SMTP_APP_PASSWORD`
+  - optional: `GMAIL_SMTP_FROM`
+- In `live` mode, missing Gmail credentials now fail fast (no silent fallback to dry-run provider)
 - Logs delayed open/click/conversion and unsubscribe outcomes
 - Executes policy-update worker tasks between tranches to demonstrate adaptation
 - Generates report artifacts and `winner_summary.json`
