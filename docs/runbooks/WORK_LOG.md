@@ -335,3 +335,13 @@
 - Opened PR #58 for C5 (`chunk/postv1-c5-replay-obp-shadow-diff-gate`).
 - CI for PR #58 passed and chunk **post-v1 C5 replay/OBP/shadow-vs-live diff + promotion-gate hardening** was merged (`f57d3ad`).
 - Stop condition reached: C2–C5 are merged to `master`; disabled cron job `caliper-correctness-orchestrator` (`67ce6623-3af7-4bb6-bd4e-80a4c5a312a2`).
+
+## 2026-03-16
+
+- Started chunk **post-v1 demo orchestrators (landing + email)**.
+- Added top-level demo commands `./run_landing_page_demo` and `./run_email_demo` with required arguments (`topic`, `variant_count`, `mode`; plus `recipients` for email).
+- Implemented landing demo orchestration with generated variant artifacts, live local serving mode, assignment/exposure/outcome telemetry, and winner summary artifacts (`scripts/run_landing_page_demo.py`).
+- Implemented email demo orchestration with provider seam, Gmail SMTP scaffold, delayed open/click/conversion/unsubscribe telemetry, tranche adaptation via worker policy updates, and winner summary artifacts (`scripts/run_email_demo.py`).
+- Added integration coverage for both orchestrators (`tests/integration/test_demo_orchestrators.py`).
+- Added operator docs for orchestrator usage and artifacts (`docs/execution/DEMO_ORCHESTRATORS.md`, `README.md`, `Makefile`).
+- Validation before PR push: `make lint && make typecheck && make test` and dry-run command checks for both new top-level demos.
