@@ -121,7 +121,7 @@ def run_landing_page_demo(
             }
             assignment = adapter.assign_request(
                 unit_id=unit_id,
-                idempotency_key=f"landing-{mode}-{idx}",
+                idempotency_key=f"landing-{mode}-{job_id}-{idx}",
                 context=context,
             )
             assignments[assignment.arm_id] += 1

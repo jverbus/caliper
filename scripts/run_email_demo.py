@@ -251,7 +251,7 @@ def run_email_demo(
                 EmailRecipient(recipient_id=f"r-{idx}", address=addr)
                 for idx, addr in enumerate(tranche_recipients, start=1)
             ],
-            idempotency_prefix=f"email-{mode}",
+            idempotency_prefix=f"email-{mode}-{job_id}",
             campaign_context={"topic": topic, "tranche": tranche_index},
         )
         for item in plan.instructions:
