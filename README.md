@@ -76,6 +76,8 @@ The command surface is intentionally stable for automation:
 - `make demo-workflow`
 - `make demo-web`
 - `make demo-email`
+- `make run-landing-page-demo`
+- `make run-email-demo`
 - `make run-embedded`
 - `make run-service`
 - `make run-worker`
@@ -98,3 +100,14 @@ Use the deployment examples in `deploy/env/`:
 - `deploy/env/.env.shared.example`
 
 Set `CALIPER_PROFILE` and related env vars to switch mode. Shared mode enables auth by default and supports `CALIPER_SHARED_API_TOKEN` for basic secret-backed API access.
+
+## Demo orchestrator entrypoints
+
+Top-level scripts for automated demo orchestration:
+
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode dry_run`
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode live`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live`
+
+Each run writes report artifacts and `winner_summary.json` under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
