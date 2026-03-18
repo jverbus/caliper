@@ -78,6 +78,7 @@ class EmailWebhookType(StrEnum):
     OPEN = "open"
     CLICK = "click"
     CONVERSION = "conversion"
+    REPLY = "reply"
     UNSUBSCRIBE = "unsubscribe"
     COMPLAINT = "complaint"
 
@@ -149,6 +150,7 @@ class EmailAdapter:
         open_metric: str = "email_open",
         click_metric: str = "email_click",
         conversion_metric: str = "email_conversion",
+        reply_metric: str = "email_reply",
         unsubscribe_metric: str = "email_unsubscribe",
         complaint_metric: str = "email_complaint",
         outcome_attribution_window_hours: int = 168,
@@ -159,6 +161,7 @@ class EmailAdapter:
         self._open_metric = open_metric
         self._click_metric = click_metric
         self._conversion_metric = conversion_metric
+        self._reply_metric = reply_metric
         self._unsubscribe_metric = unsubscribe_metric
         self._complaint_metric = complaint_metric
         self._outcome_attribution_window_hours = outcome_attribution_window_hours
@@ -183,9 +186,7 @@ class EmailAdapter:
                     unit_id=recipient.recipient_id,
                     candidate_arms=candidate_arms,
                     context={**base_context, **recipient.context},
-                    idempotency_key=(
-                        f"{idempotency_prefix}:{tranche_id}:{recipient.recipient_id}"
-                    ),
+                    idempotency_key=(f"{idempotency_prefix}:{tranche_id}:{recipient.recipient_id}"),
                 )
             )
             instructions.append(
@@ -263,9 +264,7 @@ class EmailAdapter:
                         timestamp=event.occurred_at,
                     )
                 ],
-                attribution_window=AttributionWindow(
-                    hours=self._outcome_attribution_window_hours
-                ),
+                attribution_window=AttributionWindow(hours=self._outcome_attribution_window_hours),
                 metadata={
                     "source": "email_webhook",
                     "surface": "email",
@@ -283,6 +282,7 @@ class EmailAdapter:
             EmailWebhookType.OPEN: self._open_metric,
             EmailWebhookType.CLICK: self._click_metric,
             EmailWebhookType.CONVERSION: self._conversion_metric,
+            EmailWebhookType.REPLY: self._reply_metric,
             EmailWebhookType.UNSUBSCRIBE: self._unsubscribe_metric,
             EmailWebhookType.COMPLAINT: self._complaint_metric,
         }

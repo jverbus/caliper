@@ -13,6 +13,7 @@ The email adapter now supports webhook-event ingest and mapping into Caliper out
 - `open` -> `email_open`
 - `click` -> `email_click`
 - `conversion` -> `email_conversion`
+- `reply` -> `email_reply`
 - `unsubscribe` -> `email_unsubscribe`
 - `complaint` -> `email_complaint`
 
@@ -20,7 +21,7 @@ Each webhook event is written through `log_outcome` as a single `OutcomeEvent` t
 
 ## Delayed outcomes
 
-Webhook events carry an explicit `occurred_at` timestamp, which is used as the outcome event timestamp. This supports delayed opens/clicks/conversions that can arrive long after send time.
+Webhook events carry an explicit `occurred_at` timestamp, which is used as the outcome event timestamp. This supports delayed opens/clicks/conversions/replies that can arrive long after send time.
 
 The adapter also sets a configurable attribution window (`outcome_attribution_window_hours`, default `168` hours / 7 days).
 

@@ -109,8 +109,9 @@ Top-level scripts for automated demo orchestration:
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_only --backend embedded --observe-seconds 180`
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_and_simulate --backend embedded`
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode live` (alias for `serve_and_simulate`)
-- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run`
-- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend embedded`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend service --api-url http://127.0.0.1:8000`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live --backend embedded`
 
 Mode semantics (current):
 
@@ -119,7 +120,16 @@ Mode semantics (current):
 - Landing `serve_and_simulate`: real FastAPI demo server + synthetic visitor driver against real endpoints.
 - Landing `live`: alias for `serve_and_simulate`.
 - Landing supports `--backend embedded|service` for the same orchestrator flow.
-- Email `dry_run`: synthetic delivery provider and synthetic outcome events.
+- Email supports `--backend embedded|service`.
+- Email starts a tracking server (`apps.demo_email`) and wires per-recipient links to tracked routes:
+  - `/email/{job_id}/click`
+  - `/email/{job_id}/convert`
+  - `/email/{job_id}/reply`
+- Email `dry_run`: synthetic provider + synthetic tracked-route driver (click/conversion/reply).
 - Email `live`: **real Gmail SMTP send path only**; command fails fast if Gmail credentials are missing.
+  - By default, `live` does **not** inject synthetic tracked events.
+  - Use `--simulate-tracked-events` to force synthetic route hits in `live` mode.
+- Reply signal first-step ingest command: `uv run python scripts/ingest_email_reply_signal.py ...`
 
 Each run writes report artifacts plus a machine-readable `winner_summary.json` manifest under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
+Both manifests are canonicalized with backend/mode/provider semantics, URLs, measurement metadata, metrics, and artifact paths (email adds tracked-route + reply-ingest details).

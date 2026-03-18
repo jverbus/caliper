@@ -85,6 +85,13 @@ class ServiceCaliperClient:
         )
         return ArmBulkRegisterResponse.model_validate(body)
 
+    def list_arms(self, *, job_id: str, workspace_id: str) -> list[Arm]:
+        body = self._request(
+            method="GET",
+            path=f"/v1/jobs/{job_id}/arms?workspace_id={workspace_id}",
+        )
+        return [Arm.model_validate(item) for item in body]
+
     def assign(self, payload: AssignRequest) -> AssignResult:
         body = self._request(
             method="POST",
@@ -155,6 +162,9 @@ class EmbeddedCaliperClient:
             registered_count=len(registered),
             arms=registered,
         )
+
+    def list_arms(self, *, job_id: str, workspace_id: str) -> list[Arm]:
+        return self._repository.list_arms(workspace_id=workspace_id, job_id=job_id)
 
     def assign(self, payload: AssignRequest) -> AssignResult:
         request_hash = hashlib.sha256(

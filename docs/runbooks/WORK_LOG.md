@@ -350,3 +350,15 @@
 - Started chunk **post-v1 demo orchestrator retry-safe idempotency keys**.
 - Fixed landing/email dry-run rerun failure by scoping idempotency keys with `job_id` in both orchestrators (`scripts/run_landing_page_demo.py`, `scripts/run_email_demo.py`).
 - Validation before PR push: `make lint && make typecheck && make test` and dry-run command checks for both top-level demos.
+
+## 2026-03-17
+
+- Started chunk **post-v1 demo delta: email tracked routes + reply ingest + backend parity**.
+- Added `apps.demo_email` tracking server with tracked click/conversion endpoints plus reply ingest route (`apps/demo_email/main.py`).
+- Upgraded `run_email_demo` to support `--backend embedded|service`, tracked URL wiring in sent messages, canonical manifests, tracked-route simulation controls, and dispatch manifests (`scripts/run_email_demo.py`).
+- Added first-step reply ingest command for Gmail demo follow-up workflows (`scripts/ingest_email_reply_signal.py`) and expanded email webhook mapping with `reply -> email_reply` (`packages/py-caliper-adapters/src/caliper_adapters/email.py`, `docs/execution/EMAIL_WEBHOOK_OUTCOMES.md`).
+- Added SDK arm-list parity helper to support service-mode orchestrator planning (`packages/py-sdk/src/caliper_sdk/client.py`).
+- Hardened landing and email `winner_summary.json` manifests with canonical backend/mode/provider/URL/metrics sections (`scripts/run_landing_page_demo.py`, `scripts/run_email_demo.py`).
+- Added integration + unit coverage for service backend demo runners and reply mapping (`tests/integration/test_demo_orchestrators.py`, `tests/unit/test_email_adapter.py`).
+- Updated operator docs/README for truthful synthetic-vs-real demo semantics and new artifacts (`docs/execution/DEMO_ORCHESTRATORS.md`, `README.md`).
+- Validation before PR push: `make lint && make typecheck && make test` (all passed).
