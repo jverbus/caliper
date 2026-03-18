@@ -109,9 +109,12 @@ Top-level scripts for automated demo orchestration:
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_only --backend embedded --observe-seconds 180`
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_and_simulate --backend embedded`
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode live` (alias for `serve_and_simulate`)
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_only --open-tunnel`
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend embedded`
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend service --api-url http://127.0.0.1:8000`
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live --backend embedded`
+- `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --open-tunnel`
+- `scripts/run_landing_demo_with_tunnel.sh` / `scripts/run_email_demo_with_tunnel.sh` one-command tunnel helpers
 
 Mode semantics (current):
 
@@ -120,7 +123,9 @@ Mode semantics (current):
 - Landing `serve_and_simulate`: real FastAPI demo server + synthetic visitor driver against real endpoints.
 - Landing `live`: alias for `serve_and_simulate`.
 - Landing supports `--backend embedded|service` for the same orchestrator flow.
+- Landing served modes support `--public-base-url https://...` or `--open-tunnel` for externally reachable links.
 - Email supports `--backend embedded|service`.
+- Email supports `--public-base-url https://...` or `--open-tunnel` for canonical tracked/report URLs.
 - Email starts a tracking server (`apps.demo_email`) and wires per-recipient links to tracked routes:
   - `/email/{job_id}/click`
   - `/email/{job_id}/convert`
@@ -133,3 +138,9 @@ Mode semantics (current):
 
 Each run writes report artifacts plus a machine-readable `winner_summary.json` manifest under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
 Both manifests are canonicalized with backend/mode/provider semantics, URLs, measurement metadata, metrics, and artifact paths (email adds tracked-route + reply-ingest details).
+
+Tunnel safety notes:
+
+- Treat quick tunnels as temporary public exposure of your local demo endpoints.
+- Use demo/synthetic data only while a tunnel is active.
+- End the run (or press `Ctrl-C`) immediately after walkthroughs to close server + tunnel.

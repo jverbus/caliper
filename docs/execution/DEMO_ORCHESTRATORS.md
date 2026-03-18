@@ -11,6 +11,9 @@ Command:
 ./run_landing_page_demo --topic "Caliper LP demo" --variant-count 5 --mode serve_only --backend embedded --observe-seconds 180
 ./run_landing_page_demo --topic "Caliper LP demo" --variant-count 5 --mode serve_and_simulate --backend embedded
 ./run_landing_page_demo --topic "Caliper LP demo" --variant-count 5 --mode live
+./run_landing_page_demo --topic "Caliper LP demo" --variant-count 5 --mode serve_only --open-tunnel
+./run_landing_page_demo --topic "Caliper LP demo" --variant-count 5 --mode serve_and_simulate --public-base-url https://demo.example.com
+scripts/run_landing_demo_with_tunnel.sh
 ```
 
 Behavior:
@@ -32,6 +35,9 @@ Behavior:
 - Supports backend selection:
   - `--backend embedded` → `EmbeddedCaliperClient`
   - `--backend service` → `ServiceCaliperClient --api-url ...`
+- Public URL support for served modes:
+  - `--public-base-url https://...` rewrites canonical demo/report URLs in output manifests.
+  - `--open-tunnel` starts a Cloudflare quick tunnel after local `/healthz` succeeds.
 - Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, and metrics)
 
 Output:
@@ -41,6 +47,7 @@ Output:
 - `reports/landing_page_demo/<mode>/variants/*.html`
 - `reports/landing_page_demo/<mode>/server_config.json` (for served modes)
 - `reports/landing_page_demo/<mode>/server.log` (for served modes)
+- `reports/landing_page_demo/<mode>/cloudflared_tunnel.log` (when `--open-tunnel` is used)
 
 ## Email demo
 
@@ -50,6 +57,9 @@ Command:
 ./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend embedded
 ./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend service --api-url http://127.0.0.1:8000
 ./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode live --backend embedded
+./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --open-tunnel
+./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode live --public-base-url https://demo.example.com
+scripts/run_email_demo_with_tunnel.sh
 ```
 
 Behavior:
@@ -70,6 +80,9 @@ Behavior:
   - `GET|POST /email/{job_id}/reply` (reply-signal ingest)
 - `dry_run` uses a synthetic tracked-route driver so click/conversion/reply signals flow through those routes
 - `live` defaults to real-send-only behavior (no synthetic tracked-route driver); use `--simulate-tracked-events` to opt in
+- Public URL support:
+  - `--public-base-url https://...` rewrites canonical tracked/report URLs in output manifests.
+  - `--open-tunnel` starts a Cloudflare quick tunnel after local `/healthz` succeeds.
 - Open/unsubscribe demo signals remain synthetic webhook events when synthetic driving is enabled
 - Embedded backend runs inline policy-update worker ticks between tranches; service backend expects an external worker
 - Generates report artifacts plus a canonical `winner_summary.json` manifest containing backend/mode/provider, tracked URLs, measurement mode, metrics, and artifact paths
@@ -83,6 +96,25 @@ Output:
 - `reports/email_demo/<mode>/dispatch_manifest.json`
 - `reports/email_demo/<mode>/tracking_server_config.json`
 - `reports/email_demo/<mode>/tracking_server.log`
+- `reports/email_demo/<mode>/cloudflared_tunnel.log` (when `--open-tunnel` is used)
+
+## Public tunnel workflow (demo-only)
+
+Use this when you need externally reachable links for customer/investor/operator walkthroughs.
+
+1. Start local demo server + tunnel in one command:
+   - Landing: `scripts/run_landing_demo_with_tunnel.sh`
+   - Email: `scripts/run_email_demo_with_tunnel.sh`
+2. Share URLs from CLI JSON output (`public_urls`) or from `winner_summary.json`.
+3. Keep the shell session open while the walkthrough is active.
+4. Stop with `Ctrl-C` (or let the run complete); Caliper tears down local server and tunnel process.
+
+Security caveats:
+
+- Treat quick tunnels as temporary public exposure of your local demo endpoint.
+- Use demo-only data and avoid exposing real user payloads.
+- Prefer short `--observe-seconds` windows and close sessions immediately after demos.
+- Review `cloudflared_tunnel.log` for troubleshooting and URL confirmation.
 
 ## Validation
 

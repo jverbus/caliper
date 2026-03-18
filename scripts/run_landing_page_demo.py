@@ -27,6 +27,12 @@ from caliper_core.models import (
 )
 from caliper_sdk import EmbeddedCaliperClient, ServiceCaliperClient
 
+from scripts.tunnel_helpers import (
+    QuickTunnelHandle,
+    normalize_public_base_url,
+    start_cloudflared_quick_tunnel,
+)
+
 
 def _build_client(
     *,
@@ -330,6 +336,10 @@ def run_landing_page_demo(
     port: int = 8765,
     simulate_visitors: int = 120,
     observe_seconds: int = 60,
+    public_base_url: str | None = None,
+    open_tunnel: bool = False,
+    cloudflared_bin: str = "cloudflared",
+    tunnel_timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
     if variant_count < 2:
         raise ValueError("variant_count must be >= 2")
@@ -338,6 +348,15 @@ def run_landing_page_demo(
     if canonical_mode not in {"dry_run", "serve_only", "serve_and_simulate"}:
         msg = f"Unsupported mode: {mode!r}"
         raise ValueError(msg)
+
+    if open_tunnel and public_base_url:
+        raise ValueError("choose either open_tunnel or public_base_url, not both")
+    if canonical_mode == "dry_run" and (open_tunnel or public_base_url):
+        raise ValueError("public_base_url/open_tunnel require a served landing demo mode")
+
+    normalized_public_base_url = (
+        normalize_public_base_url(public_base_url) if public_base_url else None
+    )
 
     client = _build_client(
         backend=backend,
@@ -390,7 +409,11 @@ def run_landing_page_demo(
     simulated_assignments: dict[str, int] = {}
     demo_url: str | None = None
     report_url: str | None = None
+    local_demo_url: str | None = None
+    local_report_url: str | None = None
+    resolved_public_base_url = normalized_public_base_url
     server_log_path: Path | None = None
+    tunnel_handle: QuickTunnelHandle | None = None
 
     if canonical_mode == "dry_run":
         simulated_assignments = _run_inprocess_simulation(
@@ -444,16 +467,29 @@ def run_landing_page_demo(
             stdout=log_handle,
             stderr=subprocess.STDOUT,
         )
-        base_url = f"http://{host}:{port}"
-        demo_url = f"{base_url}/lp/{job_id}"
-        report_url = f"{base_url}/lp/{job_id}/report"
+        local_base_url = f"http://{host}:{port}"
+        local_demo_url = f"{local_base_url}/lp/{job_id}"
+        local_report_url = f"{local_base_url}/lp/{job_id}/report"
 
         try:
-            _wait_for_server(base_url=base_url)
+            _wait_for_server(base_url=local_base_url)
+
+            if open_tunnel:
+                tunnel_handle = start_cloudflared_quick_tunnel(
+                    local_url=local_base_url,
+                    output_dir=output_dir,
+                    cloudflared_bin=cloudflared_bin,
+                    timeout_seconds=tunnel_timeout_seconds,
+                )
+                resolved_public_base_url = tunnel_handle.public_base_url
+
+            canonical_base_url = resolved_public_base_url or local_base_url
+            demo_url = f"{canonical_base_url}/lp/{job_id}"
+            report_url = f"{canonical_base_url}/lp/{job_id}/report"
 
             if canonical_mode == "serve_and_simulate":
                 simulated_assignments = _run_http_simulation(
-                    base_url=base_url,
+                    base_url=local_base_url,
                     job_id=job_id,
                     variant_count=variant_count,
                     visitor_count=simulate_visitors,
@@ -463,6 +499,8 @@ def run_landing_page_demo(
                 if observe_seconds > 0:
                     time.sleep(observe_seconds)
         finally:
+            if tunnel_handle is not None:
+                tunnel_handle.stop()
             process.terminate()
             try:
                 process.wait(timeout=5)
@@ -503,6 +541,12 @@ def run_landing_page_demo(
         "traffic_source": traffic_source,
         "demo_url": demo_url,
         "report_url": report_url,
+        "public_base_url": resolved_public_base_url,
+        "public_urls": (
+            {"demo_url": demo_url, "report_url": report_url} if resolved_public_base_url else None
+        ),
+        "local_demo_url": local_demo_url,
+        "local_report_url": local_report_url,
         "report_id": report_dict["report_id"],
         "job_id": report_dict["job_id"],
         "variants_dir": str(variants_dir),
@@ -510,6 +554,9 @@ def run_landing_page_demo(
         "urls": {
             "demo_url": demo_url,
             "report_url": report_url,
+            "public_base_url": resolved_public_base_url,
+            "local_demo_url": local_demo_url,
+            "local_report_url": local_report_url,
         },
         "measurement": {
             "traffic_source": traffic_source,
@@ -531,6 +578,7 @@ def run_landing_page_demo(
             if canonical_mode != "dry_run"
             else None,
             "server_log": str(server_log_path) if server_log_path else None,
+            "cloudflared_tunnel_log": str(tunnel_handle.log_path) if tunnel_handle else None,
         },
     }
 
@@ -580,6 +628,30 @@ def main() -> None:
         default=60,
         help="In serve_only mode, time window to wait for real traffic before report generation",
     )
+    parser.add_argument(
+        "--public-base-url",
+        default=None,
+        help=(
+            "Externally reachable base URL used in demo/report links (for example a tunnel URL). "
+            "If omitted, local host:port URLs are used."
+        ),
+    )
+    parser.add_argument(
+        "--open-tunnel",
+        action="store_true",
+        help="Start a Cloudflare quick tunnel after local health check and use its URL",
+    )
+    parser.add_argument(
+        "--cloudflared-bin",
+        default="cloudflared",
+        help="cloudflared executable name/path used with --open-tunnel",
+    )
+    parser.add_argument(
+        "--tunnel-timeout-seconds",
+        type=float,
+        default=30.0,
+        help="How long to wait for cloudflared tunnel URL discovery",
+    )
     args = parser.parse_args()
 
     summary = run_landing_page_demo(
@@ -595,6 +667,10 @@ def main() -> None:
         port=args.port,
         simulate_visitors=args.simulate_visitors,
         observe_seconds=args.observe_seconds,
+        public_base_url=args.public_base_url,
+        open_tunnel=args.open_tunnel,
+        cloudflared_bin=args.cloudflared_bin,
+        tunnel_timeout_seconds=args.tunnel_timeout_seconds,
     )
     print(json.dumps(summary, indent=2))
 
