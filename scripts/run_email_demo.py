@@ -49,6 +49,11 @@ from caliper_storage.sqlalchemy_models import ScheduledTaskRow
 from sqlalchemy.orm import Session, sessionmaker
 
 from apps.worker.loop import WorkerLoop
+from scripts.tunnel_helpers import (
+    QuickTunnelHandle,
+    normalize_public_base_url,
+    start_cloudflared_quick_tunnel,
+)
 
 type DemoClient = EmbeddedCaliperClient | ServiceCaliperClient
 
@@ -427,9 +432,20 @@ def run_email_demo(
     tracking_port: int = 8876,
     observe_seconds: int = 60,
     simulate_tracked_events: bool | None = None,
+    public_base_url: str | None = None,
+    open_tunnel: bool = False,
+    cloudflared_bin: str = "cloudflared",
+    tunnel_timeout_seconds: float = 30.0,
 ) -> dict[str, Any]:
     if variant_count < 2:
         raise ValueError("variant_count must be >= 2")
+
+    if open_tunnel and public_base_url:
+        raise ValueError("choose either open_tunnel or public_base_url, not both")
+
+    normalized_public_base_url = (
+        normalize_public_base_url(public_base_url) if public_base_url else None
+    )
 
     workspace_id = "ws-email-orchestrator-demo"
     client = _build_client(
@@ -554,13 +570,12 @@ def run_email_demo(
     output_dir.mkdir(parents=True, exist_ok=True)
 
     resolved_tracking_port = _free_port() if tracking_port == 0 else tracking_port
-    tracking_base_url = f"http://{tracking_host}:{resolved_tracking_port}"
-    report_url = f"{tracking_base_url}/email/{job_id}/report"
-    tracking_routes = {
-        "click": f"{tracking_base_url}/email/{job_id}/click",
-        "conversion": f"{tracking_base_url}/email/{job_id}/convert",
-        "reply": f"{tracking_base_url}/email/{job_id}/reply",
-    }
+    local_tracking_base_url = f"http://{tracking_host}:{resolved_tracking_port}"
+    resolved_public_base_url = normalized_public_base_url
+
+    tracking_base_url_for_links = local_tracking_base_url
+    report_url: str | None = None
+    tracking_routes: dict[str, str] = {}
 
     tracking_config_path = output_dir / "tracking_server_config.json"
     tracking_config_path.write_text(
@@ -583,6 +598,7 @@ def run_email_demo(
     tracking_log_path = output_dir / "tracking_server.log"
     tracking_process: subprocess.Popen[Any] | None = None
     log_handle: TextIO | None = None
+    tunnel_handle: QuickTunnelHandle | None = None
 
     rng = random.Random(99)
 
@@ -609,7 +625,24 @@ def run_email_demo(
             stdout=log_handle,
             stderr=subprocess.STDOUT,
         )
-        _wait_for_server(base_url=tracking_base_url)
+        _wait_for_server(base_url=local_tracking_base_url)
+
+        if open_tunnel:
+            tunnel_handle = start_cloudflared_quick_tunnel(
+                local_url=local_tracking_base_url,
+                output_dir=output_dir,
+                cloudflared_bin=cloudflared_bin,
+                timeout_seconds=tunnel_timeout_seconds,
+            )
+            resolved_public_base_url = tunnel_handle.public_base_url
+
+        tracking_base_url_for_links = resolved_public_base_url or local_tracking_base_url
+        report_url = f"{tracking_base_url_for_links}/email/{job_id}/report"
+        tracking_routes = {
+            "click": f"{tracking_base_url_for_links}/email/{job_id}/click",
+            "conversion": f"{tracking_base_url_for_links}/email/{job_id}/convert",
+            "reply": f"{tracking_base_url_for_links}/email/{job_id}/reply",
+        }
 
         with httpx.Client(timeout=10.0, follow_redirects=False) as tracking_client:
             for tranche_index, tranche_recipients in enumerate(tranches, start=1):
@@ -637,17 +670,31 @@ def run_email_demo(
                 )
 
                 links_by_decision: dict[str, dict[str, str]] = {}
+                local_links_by_decision: dict[str, dict[str, str]] = {}
                 for item in plan.instructions:
                     assignment_counts[item.arm_id] += 1
                     links = _tracking_links(
-                        tracking_base_url=tracking_base_url,
+                        tracking_base_url=tracking_base_url_for_links,
                         job_id=job_id,
                         decision_id=item.decision_id,
                         recipient_id=item.recipient_id,
                         arm_id=item.arm_id,
                         tranche_id=tranche_id,
                     )
+                    local_links = (
+                        links
+                        if tracking_base_url_for_links == local_tracking_base_url
+                        else _tracking_links(
+                            tracking_base_url=local_tracking_base_url,
+                            job_id=job_id,
+                            decision_id=item.decision_id,
+                            recipient_id=item.recipient_id,
+                            arm_id=item.arm_id,
+                            tranche_id=tranche_id,
+                        )
+                    )
                     links_by_decision[item.decision_id] = links
+                    local_links_by_decision[item.decision_id] = local_links
                     item.metadata.update(
                         {
                             "topic": topic,
@@ -681,6 +728,7 @@ def run_email_demo(
                             ),
                             "delivered": record.delivered if record is not None else False,
                             "tracking": links,
+                            "tracking_local": local_links_by_decision[item.decision_id],
                         }
                     )
 
@@ -695,15 +743,17 @@ def run_email_demo(
                         )
                         synthetic_event_counts["email_open"] += 1
 
-                        links = links_by_decision[item.decision_id]
+                        local_links = local_links_by_decision[item.decision_id]
                         if rng.random() < 0.45:
-                            click_response = tracking_client.get(links["click"])
+                            click_response = tracking_client.get(local_links["click"])
                             if click_response.status_code >= 400:
                                 click_response.raise_for_status()
                             synthetic_event_counts["email_click"] += 1
 
                             if rng.random() < 0.2:
-                                conversion_response = tracking_client.post(links["conversion"])
+                                conversion_response = tracking_client.post(
+                                    local_links["conversion"]
+                                )
                                 if conversion_response.status_code >= 400:
                                     conversion_response.raise_for_status()
                                 synthetic_event_counts["email_conversion"] += 1
@@ -719,7 +769,7 @@ def run_email_demo(
                             synthetic_event_counts["email_unsubscribe"] += 1
 
                         if rng.random() < 0.08:
-                            reply_response = tracking_client.post(links["reply"])
+                            reply_response = tracking_client.post(local_links["reply"])
                             if reply_response.status_code >= 400:
                                 reply_response.raise_for_status()
                             synthetic_event_counts["email_reply"] += 1
@@ -744,6 +794,8 @@ def run_email_demo(
             )
             report_dict = report.model_dump(mode="json")
     finally:
+        if tunnel_handle is not None:
+            tunnel_handle.stop()
         if tracking_process is not None:
             tracking_process.terminate()
             try:
@@ -789,10 +841,28 @@ def run_email_demo(
         "active_arms_by_tranche": active_arms_by_tranche,
         "report_id": report_dict["report_id"],
         "job_id": report_dict["job_id"],
+        "public_base_url": resolved_public_base_url,
+        "public_urls": (
+            {
+                "tracking_base_url": tracking_base_url_for_links,
+                "tracking_routes": tracking_routes,
+                "report_url": report_url,
+            }
+            if resolved_public_base_url
+            else None
+        ),
         "urls": {
-            "tracking_base_url": tracking_base_url,
+            "tracking_base_url": tracking_base_url_for_links,
+            "local_tracking_base_url": local_tracking_base_url,
+            "public_base_url": resolved_public_base_url,
             "tracking_routes": tracking_routes,
+            "local_tracking_routes": {
+                "click": f"{local_tracking_base_url}/email/{job_id}/click",
+                "conversion": f"{local_tracking_base_url}/email/{job_id}/convert",
+                "reply": f"{local_tracking_base_url}/email/{job_id}/reply",
+            },
             "report_url": report_url,
+            "local_report_url": f"{local_tracking_base_url}/email/{job_id}/report",
         },
         "measurement": {
             "click_conversion_ingest": "tracked_http_routes",
@@ -823,6 +893,7 @@ def run_email_demo(
             "dispatch_manifest_json": str(dispatch_manifest_path),
             "tracking_server_config": str(tracking_config_path),
             "tracking_server_log": str(tracking_log_path),
+            "cloudflared_tunnel_log": str(tunnel_handle.log_path) if tunnel_handle else None,
         },
     }
 
@@ -879,6 +950,30 @@ def main() -> None:
         action="store_true",
         help="Disable synthetic tracked-event route hits",
     )
+    parser.add_argument(
+        "--public-base-url",
+        default=None,
+        help=(
+            "Externally reachable base URL used in tracked links/report URL "
+            "(for example a tunnel URL). If omitted, local host:port URLs are used."
+        ),
+    )
+    parser.add_argument(
+        "--open-tunnel",
+        action="store_true",
+        help="Start a Cloudflare quick tunnel after local health check and use its URL",
+    )
+    parser.add_argument(
+        "--cloudflared-bin",
+        default="cloudflared",
+        help="cloudflared executable name/path used with --open-tunnel",
+    )
+    parser.add_argument(
+        "--tunnel-timeout-seconds",
+        type=float,
+        default=30.0,
+        help="How long to wait for cloudflared tunnel URL discovery",
+    )
     args = parser.parse_args()
 
     recipients = [value.strip() for value in args.recipients.split(",") if value.strip()]
@@ -910,6 +1005,10 @@ def main() -> None:
         tracking_port=args.tracking_port,
         observe_seconds=args.observe_seconds,
         simulate_tracked_events=simulate_flag,
+        public_base_url=args.public_base_url,
+        open_tunnel=args.open_tunnel,
+        cloudflared_bin=args.cloudflared_bin,
+        tunnel_timeout_seconds=args.tunnel_timeout_seconds,
     )
     print(json.dumps(summary, indent=2))
 

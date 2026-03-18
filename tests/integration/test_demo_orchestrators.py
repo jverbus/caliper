@@ -131,6 +131,56 @@ def test_run_landing_page_demo_serve_and_simulate(tmp_path: Path) -> None:
     assert summary["winner_arm_id"].startswith("landing-")
 
 
+def test_run_landing_page_demo_serve_and_simulate_public_base_url(tmp_path: Path) -> None:
+    public_base_url = "https://demo.example.com"
+    port = _free_port()
+    summary = run_landing_page_demo(
+        topic="AI support",
+        variant_count=4,
+        mode="serve_and_simulate",
+        backend="embedded",
+        db_url=f"sqlite:///{tmp_path / 'landing-live-public.db'}",
+        output_root=str(tmp_path / "landing_live_public_artifacts"),
+        host="127.0.0.1",
+        port=port,
+        simulate_visitors=8,
+        observe_seconds=0,
+        public_base_url=public_base_url,
+    )
+
+    assert summary["public_base_url"] == public_base_url
+    assert summary["demo_url"] == f"{public_base_url}/lp/{summary['job_id']}"
+    assert summary["report_url"] == f"{public_base_url}/lp/{summary['job_id']}/report"
+    assert summary["public_urls"]["demo_url"] == summary["demo_url"]
+    assert summary["local_demo_url"] == f"http://127.0.0.1:{port}/lp/{summary['job_id']}"
+    assert summary["local_report_url"] == f"http://127.0.0.1:{port}/lp/{summary['job_id']}/report"
+
+
+def test_run_landing_page_demo_rejects_public_base_url_in_dry_run(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="public_base_url/open_tunnel require"):
+        run_landing_page_demo(
+            topic="AI support",
+            variant_count=3,
+            mode="dry_run",
+            db_url=f"sqlite:///{tmp_path / 'landing-dry-run.db'}",
+            output_root=str(tmp_path / "landing_dry_run_artifacts"),
+            public_base_url="https://demo.example.com",
+        )
+
+
+def test_run_landing_page_demo_rejects_conflicting_public_url_flags(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="choose either open_tunnel or public_base_url"):
+        run_landing_page_demo(
+            topic="AI support",
+            variant_count=3,
+            mode="serve_only",
+            db_url=f"sqlite:///{tmp_path / 'landing-conflict.db'}",
+            output_root=str(tmp_path / "landing_conflict_artifacts"),
+            public_base_url="https://demo.example.com",
+            open_tunnel=True,
+        )
+
+
 def test_run_email_demo_dry_run(tmp_path: Path) -> None:
     summary = run_email_demo(
         topic="Launch campaign",
@@ -157,6 +207,55 @@ def test_run_email_demo_dry_run(tmp_path: Path) -> None:
     assert winner_summary["winner_arm_id"].startswith("subject-")
     assert isinstance(dispatch_manifest, list)
     assert dispatch_manifest
+
+
+def test_run_email_demo_dry_run_public_base_url(tmp_path: Path) -> None:
+    public_base_url = "https://demo.example.com"
+    summary = run_email_demo(
+        topic="Launch campaign",
+        recipients=[f"u{i}@example.com" for i in range(1, 5)],
+        variant_count=4,
+        mode="dry_run",
+        db_url=f"sqlite:///{tmp_path / 'email-public.db'}",
+        output_root=str(tmp_path / "email_public_artifacts"),
+        tracking_host="127.0.0.1",
+        tracking_port=_free_port(),
+        public_base_url=public_base_url,
+    )
+
+    assert summary["public_base_url"] == public_base_url
+    assert summary["public_urls"] is not None
+    assert summary["urls"]["tracking_base_url"] == public_base_url
+    assert summary["urls"]["report_url"] == f"{public_base_url}/email/{summary['job_id']}/report"
+    assert summary["urls"]["local_tracking_base_url"].startswith("http://127.0.0.1:")
+    assert summary["urls"]["tracking_routes"]["click"].startswith(
+        f"{public_base_url}/email/{summary['job_id']}/click"
+    )
+
+    dispatch_manifest = json.loads(
+        (Path(summary["artifacts"]["dispatch_manifest_json"])).read_text(encoding="utf-8")
+    )
+    assert dispatch_manifest
+    assert dispatch_manifest[0]["tracking"]["click"].startswith(
+        f"{public_base_url}/email/{summary['job_id']}/click"
+    )
+    assert dispatch_manifest[0]["tracking_local"]["click"].startswith(
+        f"{summary['urls']['local_tracking_base_url']}/email/{summary['job_id']}/click"
+    )
+
+
+def test_run_email_demo_rejects_conflicting_public_url_flags(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="choose either open_tunnel or public_base_url"):
+        run_email_demo(
+            topic="Launch campaign",
+            recipients=["u1@example.com", "u2@example.com"],
+            variant_count=3,
+            mode="dry_run",
+            db_url=f"sqlite:///{tmp_path / 'email-conflict.db'}",
+            output_root=str(tmp_path / "email_conflict_artifacts"),
+            public_base_url="https://demo.example.com",
+            open_tunnel=True,
+        )
 
 
 def test_run_email_demo_dry_run_service_backend(tmp_path: Path) -> None:
