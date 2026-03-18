@@ -408,6 +408,13 @@ def run_landing_page_demo(
         msg = f"Unsupported mode: {mode!r}"
         raise ValueError(msg)
 
+    telemetry_mode_by_mode = {
+        "dry_run": "synthetic",
+        "serve_only": "real",
+        "serve_and_simulate": "real_plus_synthetic",
+    }
+    telemetry_mode = telemetry_mode_by_mode[canonical_mode]
+
     if open_tunnel and public_base_url:
         raise ValueError("choose either open_tunnel or public_base_url, not both")
     if canonical_mode == "dry_run" and (open_tunnel or public_base_url):
@@ -500,6 +507,8 @@ def run_landing_page_demo(
                     "db_url": db_url,
                     "api_url": api_url,
                     "api_token": api_token,
+                    "demo_mode": canonical_mode,
+                    "telemetry_mode": telemetry_mode,
                 },
                 indent=2,
             )
@@ -593,11 +602,12 @@ def run_landing_page_demo(
     }[canonical_mode]
 
     summary = {
-        "manifest_version": "demo-orchestrator-landing-v3",
+        "manifest_version": "demo-orchestrator-landing-v4",
         "surface": "web",
         "topic": topic,
         "mode": canonical_mode,
         "backend": backend,
+        "telemetry_mode": telemetry_mode,
         "provider_mode": {
             "dry_run": "inprocess-simulator",
             "serve_only": "http-server",
@@ -635,9 +645,35 @@ def run_landing_page_demo(
                 "landing_demo_server",
                 "landing_demo_inprocess",
             ],
+            "operator_control_metadata_keys": ["force_new_visitor", "operator_action"],
             "simulated_visitor_count": sum(simulated_assignments.values()),
             "browser_tracker_event_counts": browser_tracker_event_counts,
             "browser_tracker_time_spent_seconds": round(browser_time_spent_seconds, 3),
+        },
+        "operator_controls": {
+            "enabled": canonical_mode != "dry_run",
+            "query_params": {
+                "force_new_visitor": "force_new_visitor",
+                "operator_action": "operator_action",
+            },
+            "actions": ["reset_identity", "force_new_visitor"],
+            "status_panel": {
+                "backend_mode": backend,
+                "telemetry_mode": telemetry_mode,
+                "health_endpoint": "/healthz",
+            },
+            "walkthrough_examples": {
+                "force_new_visitor_url": (
+                    f"{demo_url}?force_new_visitor=1&operator_action=force_new_visitor"
+                    if demo_url
+                    else None
+                ),
+                "reset_identity_url": (
+                    f"{demo_url}?force_new_visitor=1&operator_action=reset_identity"
+                    if demo_url
+                    else None
+                ),
+            },
         },
         "browser_tracker": {
             "event_source": "browser_tracker",

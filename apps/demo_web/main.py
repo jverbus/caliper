@@ -26,6 +26,8 @@ class DemoWebConfig(BaseModel):
     db_url: str | None = None
     api_url: str | None = None
     api_token: str | None = None
+    demo_mode: str | None = None
+    telemetry_mode: str | None = None
 
     @classmethod
     def load_from_env(cls) -> DemoWebConfig:
@@ -130,49 +132,80 @@ def _register_browser_event_id(app: FastAPI, event_id: str | None) -> bool:
     return True
 
 
-def _browser_tracker_bootstrap_snippet(
+def _landing_bootstrap_snippet(
     *,
     job_id: str,
     decision_id: str,
     visitor_id: str,
     arm_id: str,
+    topic: str,
+    backend_mode: str,
+    telemetry_mode: str,
+    tracker_enabled: bool,
     track_time_spent: bool,
     track_clicks: bool,
 ) -> str:
     config = {
-        "jobId": job_id,
-        "decisionId": decision_id,
-        "visitorId": visitor_id,
-        "armId": arm_id,
-        "endpointPath": f"/lp/{job_id}/events",
-        "enableAutoTimeSpent": track_time_spent,
-        "enableClickTracking": track_clicks,
-        "clickSelector": "a[href*='/click'],button[data-caliper-click],[data-caliper-click]",
-        "baseMetadata": {
-            "path": f"/lp/{job_id}",
-            "source": "browser_tracker",
-            "surface": "web",
+        "trackerEnabled": tracker_enabled,
+        "tracker": {
+            "jobId": job_id,
+            "decisionId": decision_id,
+            "visitorId": visitor_id,
+            "armId": arm_id,
+            "endpointPath": f"/lp/{job_id}/events",
+            "enableAutoTimeSpent": track_time_spent,
+            "enableClickTracking": track_clicks,
+            "clickSelector": "a[href*='/click'],button[data-caliper-click],[data-caliper-click]",
+            "baseMetadata": {
+                "path": f"/lp/{job_id}",
+                "source": "browser_tracker",
+                "surface": "web",
+            },
+            "timeSpent": {
+                "minSeconds": 1.0,
+                "measurement": "visible_time",
+            },
         },
-        "timeSpent": {
-            "minSeconds": 1.0,
-            "measurement": "visible_time",
+        "operator": {
+            "jobId": job_id,
+            "topic": topic,
+            "visitorId": visitor_id,
+            "decisionId": decision_id,
+            "armId": arm_id,
+            "backendMode": backend_mode,
+            "telemetryMode": telemetry_mode,
+            "healthEndpoint": "/healthz",
+            "landingPath": f"/lp/{job_id}",
+            "forceVisitorQueryParam": "force_new_visitor",
+            "actionQueryParam": "operator_action",
         },
     }
 
     config_json = json.dumps(config, separators=(",", ":")).replace("</", "<\\/")
+    tracker_script = (
+        "\n<script src='/lp-static/browser_tracker.js' defer></script>" if tracker_enabled else ""
+    )
     return (
-        "\n<script src='/lp-static/browser_tracker.js' defer></script>"
-        "\n<script>(function(){"
-        f"const cfg={config_json};"
-        "const boot=function(){"
-        "const trackerApi=window.CaliperLandingTracker;"
-        "if(!trackerApi||typeof trackerApi.bootstrapLandingTelemetry!=='function'){return;}"
-        "trackerApi.bootstrapLandingTelemetry(cfg);"
-        "};"
-        "if(document.readyState==='loading'){"
-        "document.addEventListener('DOMContentLoaded',boot,{once:true});"
-        "}else{boot();}"
-        "})();</script>"
+        tracker_script
+        + "\n<script src='/lp-static/operator_panel.js' defer></script>"
+        + "\n<script>(function(){"
+        + f"const cfg={config_json};"
+        + "const boot=function(){"
+        + "if(cfg.trackerEnabled){"
+        + "const trackerApi=window.CaliperLandingTracker;"
+        + "if(trackerApi&&typeof trackerApi.bootstrapLandingTelemetry==='function'){"
+        + "trackerApi.bootstrapLandingTelemetry(cfg.tracker);"
+        + "}"
+        + "}"
+        + "const operatorApi=window.CaliperOperatorPanel;"
+        + "if(operatorApi&&typeof operatorApi.bootstrapLandingOperatorPanel==='function'){"
+        + "operatorApi.bootstrapLandingOperatorPanel(cfg.operator);"
+        + "}"
+        + "};"
+        + "if(document.readyState==='loading'){"
+        + "document.addEventListener('DOMContentLoaded',boot,{once:true});"
+        + "}else{boot();}"
+        + "})();</script>"
     )
 
 
@@ -183,6 +216,9 @@ def _augment_variant_html(
     decision_id: str,
     visitor_id: str,
     arm_id: str,
+    topic: str,
+    backend_mode: str,
+    telemetry_mode: str,
     tracker_enabled: bool,
     track_time_spent: bool,
     track_clicks: bool,
@@ -213,21 +249,22 @@ def _augment_variant_html(
     if "{{CONVERT_URL}}" in html_text:
         html_text = html_text.replace("{{CONVERT_URL}}", convert_url)
 
-    if tracker_enabled:
-        snippet = _browser_tracker_bootstrap_snippet(
-            job_id=job_id,
-            decision_id=decision_id,
-            visitor_id=visitor_id,
-            arm_id=arm_id,
-            track_time_spent=track_time_spent,
-            track_clicks=track_clicks,
-        )
-        if re.search(r"</body>", html_text, flags=re.IGNORECASE):
-            html_text = re.sub(
-                r"</body>", snippet + "</body>", html_text, count=1, flags=re.IGNORECASE
-            )
-        else:
-            html_text = html_text + snippet
+    snippet = _landing_bootstrap_snippet(
+        job_id=job_id,
+        decision_id=decision_id,
+        visitor_id=visitor_id,
+        arm_id=arm_id,
+        topic=topic,
+        backend_mode=backend_mode,
+        telemetry_mode=telemetry_mode,
+        tracker_enabled=tracker_enabled,
+        track_time_spent=track_time_spent,
+        track_clicks=track_clicks,
+    )
+    if re.search(r"</body>", html_text, flags=re.IGNORECASE):
+        html_text = re.sub(r"</body>", snippet + "</body>", html_text, count=1, flags=re.IGNORECASE)
+    else:
+        html_text = html_text + snippet
 
     return html_text
 
@@ -251,18 +288,34 @@ def create_app(config: DemoWebConfig | None = None) -> FastAPI:
 
     @app.get("/healthz")
     def healthz() -> dict[str, str]:
-        return {"status": "ok", "job_id": cfg.job_id}
+        return {
+            "status": "ok",
+            "job_id": cfg.job_id,
+            "backend": cfg.backend,
+            "demo_mode": cfg.demo_mode or "unknown",
+            "telemetry_mode": cfg.telemetry_mode or cfg.demo_mode or "unknown",
+        }
 
     @app.get("/lp/{job_id}", response_class=HTMLResponse)
     def render_variant(job_id: str, request: Request) -> HTMLResponse:
         if job_id != cfg.job_id:
             raise HTTPException(status_code=404, detail="Unknown landing demo job")
 
-        visitor_id = request.query_params.get("visitor_id") or request.cookies.get(
-            "caliper_visitor_id"
+        force_new_visitor = _bool_from_query(
+            request.query_params.get("force_new_visitor"),
+            default=False,
         )
-        if not visitor_id:
-            visitor_id = f"visitor-{uuid4().hex[:12]}"
+        operator_action = request.query_params.get("operator_action")
+
+        visitor_id_param = request.query_params.get("visitor_id")
+        if force_new_visitor:
+            visitor_id = visitor_id_param or f"visitor-{uuid4().hex[:12]}"
+        else:
+            visitor_id = (
+                visitor_id_param
+                or request.cookies.get("caliper_visitor_id")
+                or f"visitor-{uuid4().hex[:12]}"
+            )
 
         country = request.query_params.get("country", "US")
         referrer = request.query_params.get("referrer", "direct")
@@ -299,6 +352,9 @@ def create_app(config: DemoWebConfig | None = None) -> FastAPI:
             decision_id=assignment.decision_id,
             visitor_id=visitor_id,
             arm_id=assignment.arm_id,
+            topic=cfg.topic,
+            backend_mode=cfg.backend,
+            telemetry_mode=cfg.telemetry_mode or cfg.demo_mode or "unknown",
             tracker_enabled=tracker_enabled,
             track_time_spent=track_time_spent,
             track_clicks=track_clicks,
@@ -311,9 +367,13 @@ def create_app(config: DemoWebConfig | None = None) -> FastAPI:
                 "path": "/lp/{job_id}",
                 "topic": cfg.topic,
                 "source": "landing_demo_server",
+                "backend_mode": cfg.backend,
+                "telemetry_mode": cfg.telemetry_mode or cfg.demo_mode or "unknown",
                 "browser_tracker_enabled": tracker_enabled,
                 "track_time_spent": track_time_spent,
                 "track_clicks": track_clicks,
+                "force_new_visitor": force_new_visitor,
+                "operator_action": operator_action or "none",
             },
         )
 

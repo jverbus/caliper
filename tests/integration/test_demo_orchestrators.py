@@ -82,6 +82,8 @@ def test_run_landing_page_demo_dry_run(tmp_path: Path) -> None:
     assert summary["winner_arm_id"].startswith("landing-")
     assert summary["traffic_source"] == "synthetic_simulation"
     assert summary["backend"] == "embedded"
+    assert summary["telemetry_mode"] == "synthetic"
+    assert summary["operator_controls"]["enabled"] is False
     assert isinstance(summary["simulated_assignment_counts"], dict)
 
     output_dir = tmp_path / "landing_artifacts" / "dry_run"
@@ -129,12 +131,22 @@ def test_run_landing_page_demo_serve_and_simulate(tmp_path: Path) -> None:
     assert summary["demo_url"] is not None
     assert summary["report_url"] is not None
     assert summary["winner_arm_id"].startswith("landing-")
+    assert summary["telemetry_mode"] == "real_plus_synthetic"
     assert summary["measurement"]["browser_tracker_enabled"] is True
     assert summary["measurement"]["browser_tracker_event_counts"]["time_spent"] > 0
     assert summary["measurement"]["browser_tracker_time_spent_seconds"] > 0
     assert "time_spent" in summary["metrics"]["secondary_metrics"]
     assert "click_detail" in summary["metrics"]["secondary_metrics"]
     assert summary["browser_tracker"]["event_source"] == "browser_tracker"
+    assert summary["operator_controls"]["enabled"] is True
+    assert summary["operator_controls"]["status_panel"]["backend_mode"] == "embedded"
+    assert summary["operator_controls"]["status_panel"]["telemetry_mode"] == "real_plus_synthetic"
+
+    server_config_path = summary["artifacts"]["server_config"]
+    assert server_config_path is not None
+    server_config = json.loads(Path(server_config_path).read_text(encoding="utf-8"))
+    assert server_config["demo_mode"] == "serve_and_simulate"
+    assert server_config["telemetry_mode"] == "real_plus_synthetic"
 
 
 def test_run_landing_page_demo_serve_and_simulate_public_base_url(tmp_path: Path) -> None:
