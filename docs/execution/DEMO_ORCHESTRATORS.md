@@ -44,11 +44,17 @@ Behavior:
   - beacon/keepalive delivery fallback,
   - delegated click helper (`click_detail`),
   - auto visible-time helper (`time_spent`).
+- Served modes also bootstrap an operator panel (`apps/demo_web/static/operator_panel.js`) with:
+  - current visitor/decision/arm context,
+  - explicit **Reset identity** and **Force new visitor** controls,
+  - backend/telemetry mode and `/healthz` tracking endpoint status.
 - Tracker toggles can be passed as query params on landing routes: `browser_tracker=0`, `track_time_spent=0`, `track_clicks=0`.
+- Operator actions route through query params: `force_new_visitor=1` and `operator_action=<action_name>`.
 - Outcome metadata source markers:
   - `source=browser_tracker` for `/lp/{job_id}/events` ingestion,
-  - `source=landing_demo_server` (real routes) / `source=landing_demo_inprocess` (dry-run simulator) for server-origin events.
-- Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, browser telemetry, and metrics)
+  - `source=landing_demo_server` (real routes) / `source=landing_demo_inprocess` (dry-run simulator) for server-origin events,
+  - `force_new_visitor` + `operator_action` fields on landing render exposures.
+- Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, browser telemetry, operator controls, and metrics)
 
 Output:
 
@@ -126,6 +132,15 @@ Security caveats:
 - Use demo-only data and avoid exposing real user payloads.
 - Prefer short `--observe-seconds` windows and close sessions immediately after demos.
 - Review `cloudflared_tunnel.log` for troubleshooting and URL confirmation.
+
+## Live walkthrough script (customer/investor/operator)
+
+1. Run landing demo in served mode (`serve_only` for fully real traffic, `serve_and_simulate`/`live` for assisted flow).
+2. Share `demo_url`; call out Operator Panel fields (visitor, decision, arm, backend mode, telemetry mode).
+3. Click **Force new visitor** to show fresh assignment path (URL carries `force_new_visitor=1&operator_action=force_new_visitor`).
+4. Click **Reset identity** to clear cookie context and run a brand-new assignment (`operator_action=reset_identity`).
+5. Optionally compare with `browser_tracker=0` to explain browser telemetry on/off behavior.
+6. Open `report_url` + `winner_summary.json` to connect observed behavior to measured outcomes and operator-control metadata.
 
 ## Validation
 

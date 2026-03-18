@@ -125,6 +125,11 @@ Mode semantics (current):
 - Landing supports `--backend embedded|service` for the same orchestrator flow.
 - Landing served modes support `--public-base-url https://...` or `--open-tunnel` for externally reachable links.
 - Landing served modes inject a browser tracker helper with retry queue persistence, beacon/keepalive fallback, delegated click tracking, and auto visible-time (`time_spent`) emission.
+- Landing served modes also inject an operator panel (`apps/demo_web/static/operator_panel.js`) with:
+  - current visitor/decision/arm context,
+  - explicit `Reset identity` and `Force new visitor` controls,
+  - backend/telemetry mode + tracking endpoint health status.
+- Operator actions round-trip through `force_new_visitor=1` and `operator_action=...` query params; landing exposure metadata records these fields for replay/audit.
 - Tracker helpers can be toggled per-request with `browser_tracker=0`, `track_time_spent=0`, and `track_clicks=0` query params.
 - Email supports `--backend embedded|service`.
 - Email supports `--public-base-url https://...` or `--open-tunnel` for canonical tracked/report URLs.
@@ -147,3 +152,12 @@ Tunnel safety notes:
 - Treat quick tunnels as temporary public exposure of your local demo endpoints.
 - Use demo/synthetic data only while a tunnel is active.
 - End the run (or press `Ctrl-C`) immediately after walkthroughs to close server + tunnel.
+
+Live walkthrough script (operator UX):
+
+1. Start served mode (`serve_only` for real traffic, `live`/`serve_and_simulate` for synthetic assist).
+2. Open `demo_url` and point out Operator Panel context: visitor id, decision id, arm id, backend mode, telemetry mode.
+3. Click **Force new visitor** and explain that Caliper evaluates a fresh unit; mention `operator_action=force_new_visitor` appears in tracked render metadata.
+4. Click **Reset identity** to clear cookies + re-run assignment as a brand-new visitor; mention `operator_action=reset_identity`.
+5. Optional: toggle `browser_tracker=0` in URL to demonstrate telemetry mode differences.
+6. End by opening `report_url` and correlating observed operator actions with report/manifest fields.

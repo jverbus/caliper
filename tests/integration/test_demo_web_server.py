@@ -81,10 +81,22 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
         assert landing.status_code == 200
         assert "Variant" in landing.text
         assert "browser_tracker.js" in landing.text
+        assert "operator_panel.js" in landing.text
+        first_visitor_id = http.cookies.get("caliper_visitor_id")
+        assert first_visitor_id is not None
 
         landing_no_tracker = http.get(f"/lp/{job_id}?browser_tracker=0")
         assert landing_no_tracker.status_code == 200
         assert "browser_tracker.js" not in landing_no_tracker.text
+        assert "operator_panel.js" in landing_no_tracker.text
+
+        forced_new_visitor = http.get(
+            f"/lp/{job_id}?force_new_visitor=1&operator_action=force_new_visitor"
+        )
+        assert forced_new_visitor.status_code == 200
+        forced_visitor_id = http.cookies.get("caliper_visitor_id")
+        assert forced_visitor_id is not None
+        assert forced_visitor_id != first_visitor_id
 
         click = http.get(f"/lp/{job_id}/click", follow_redirects=False)
         assert click.status_code == 302
@@ -159,6 +171,11 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
 
     assert len(exposures) >= 1
     assert len(outcomes) >= 4
+
+    assert any(exposure.metadata.get("force_new_visitor") is True for exposure in exposures)
+    assert any(
+        exposure.metadata.get("operator_action") == "force_new_visitor" for exposure in exposures
+    )
 
     outcome_types: list[str] = []
     browser_tracker_outcomes = []
