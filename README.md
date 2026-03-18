@@ -124,6 +124,8 @@ Mode semantics (current):
 - Landing `live`: alias for `serve_and_simulate`.
 - Landing supports `--backend embedded|service` for the same orchestrator flow.
 - Landing served modes support `--public-base-url https://...` or `--open-tunnel` for externally reachable links.
+- Landing served modes inject a browser tracker helper with retry queue persistence, beacon/keepalive fallback, delegated click tracking, and auto visible-time (`time_spent`) emission.
+- Tracker helpers can be toggled per-request with `browser_tracker=0`, `track_time_spent=0`, and `track_clicks=0` query params.
 - Email supports `--backend embedded|service`.
 - Email supports `--public-base-url https://...` or `--open-tunnel` for canonical tracked/report URLs.
 - Email starts a tracking server (`apps.demo_email`) and wires per-recipient links to tracked routes:
@@ -138,6 +140,7 @@ Mode semantics (current):
 
 Each run writes report artifacts plus a machine-readable `winner_summary.json` manifest under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
 Both manifests are canonicalized with backend/mode/provider semantics, URLs, measurement metadata, metrics, and artifact paths (email adds tracked-route + reply-ingest details).
+Landing serve-and-simulate manifests also include browser-tracker telemetry summaries (event counts, visible time totals, and click metadata samples).
 
 Tunnel safety notes:
 

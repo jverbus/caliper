@@ -286,9 +286,12 @@ def _run_http_simulation(
     variant_count: int,
     visitor_count: int,
     seed: int,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     rng = random.Random(seed)
     assignments: dict[str, int] = {f"landing-{i}": 0 for i in range(variant_count)}
+    browser_event_counts: dict[str, int] = {"click_detail": 0, "time_spent": 0}
+    browser_click_metadata_examples: list[dict[str, Any]] = []
+    total_time_spent_seconds = 0.0
 
     for idx in range(visitor_count):
         params = {
@@ -302,6 +305,9 @@ def _run_http_simulation(
             landing.raise_for_status()
             arm_id = session.cookies.get("caliper_arm_id") or "unknown"
             assignments[arm_id] = assignments.get(arm_id, 0) + 1
+
+            decision_id = session.cookies.get("caliper_decision_id")
+            visitor_id = session.cookies.get("caliper_visitor_id")
 
             if arm_id.startswith("landing-"):
                 arm_index = int(arm_id.split("-")[-1])
@@ -319,7 +325,60 @@ def _run_http_simulation(
                 if convert_response.status_code >= 400:
                     convert_response.raise_for_status()
 
-    return assignments
+            if decision_id and visitor_id:
+                events: list[dict[str, Any]] = []
+                if click:
+                    click_metadata = {
+                        "tag": "a",
+                        "text": "Learn more",
+                        "caliper_click_role": "cta_primary",
+                        "source": "browser_tracker",
+                    }
+                    events.append(
+                        {
+                            "event_type": "click_detail",
+                            "event_id": f"browser-click-{uuid4().hex}",
+                            "value": 1.0,
+                            "metadata": click_metadata,
+                        }
+                    )
+                    browser_event_counts["click_detail"] += 1
+                    if len(browser_click_metadata_examples) < 5:
+                        browser_click_metadata_examples.append(click_metadata)
+
+                time_spent_seconds = round(rng.uniform(1.2, 12.0), 3)
+                events.append(
+                    {
+                        "event_type": "time_spent",
+                        "event_id": f"browser-time-{uuid4().hex}",
+                        "value": time_spent_seconds,
+                        "metadata": {
+                            "measurement": "visible_time",
+                            "reason": "synthetic_browser_driver",
+                            "source": "browser_tracker",
+                        },
+                    }
+                )
+                browser_event_counts["time_spent"] += 1
+                total_time_spent_seconds += time_spent_seconds
+
+                telemetry_response = session.post(
+                    f"{base_url}/lp/{job_id}/events",
+                    json={
+                        "visitor_id": visitor_id,
+                        "decision_id": decision_id,
+                        "events": events,
+                    },
+                )
+                if telemetry_response.status_code >= 400:
+                    telemetry_response.raise_for_status()
+
+    return {
+        "assignment_counts": assignments,
+        "browser_event_counts": browser_event_counts,
+        "browser_click_metadata_examples": browser_click_metadata_examples,
+        "browser_time_spent_seconds": round(total_time_spent_seconds, 3),
+    }
 
 
 def run_landing_page_demo(
@@ -373,7 +432,7 @@ def run_landing_page_demo(
         objective_spec=ObjectiveSpec(
             reward_formula="(0.40 * click) + conversion",
             penalties=[],
-            secondary_metrics=["click", "conversion"],
+            secondary_metrics=["click", "conversion", "click_detail", "time_spent"],
         ),
         guardrail_spec=GuardrailSpec(rules=[]),
         policy_spec=PolicySpec(
@@ -407,6 +466,9 @@ def run_landing_page_demo(
     adapter = WebAdapter(client=client, workspace_id=workspace_id, job_id=job_id)
 
     simulated_assignments: dict[str, int] = {}
+    browser_tracker_event_counts: dict[str, int] = {"click_detail": 0, "time_spent": 0}
+    browser_click_metadata_examples: list[dict[str, Any]] = []
+    browser_time_spent_seconds = 0.0
     demo_url: str | None = None
     report_url: str | None = None
     local_demo_url: str | None = None
@@ -488,13 +550,19 @@ def run_landing_page_demo(
             report_url = f"{canonical_base_url}/lp/{job_id}/report"
 
             if canonical_mode == "serve_and_simulate":
-                simulated_assignments = _run_http_simulation(
+                http_simulation = _run_http_simulation(
                     base_url=local_base_url,
                     job_id=job_id,
                     variant_count=variant_count,
                     visitor_count=simulate_visitors,
                     seed=42,
                 )
+                simulated_assignments = dict(http_simulation["assignment_counts"])
+                browser_tracker_event_counts = dict(http_simulation["browser_event_counts"])
+                browser_click_metadata_examples = list(
+                    http_simulation["browser_click_metadata_examples"]
+                )
+                browser_time_spent_seconds = float(http_simulation["browser_time_spent_seconds"])
             else:
                 if observe_seconds > 0:
                     time.sleep(observe_seconds)
@@ -525,7 +593,7 @@ def run_landing_page_demo(
     }[canonical_mode]
 
     summary = {
-        "manifest_version": "demo-orchestrator-landing-v2",
+        "manifest_version": "demo-orchestrator-landing-v3",
         "surface": "web",
         "topic": topic,
         "mode": canonical_mode,
@@ -561,12 +629,27 @@ def run_landing_page_demo(
         "measurement": {
             "traffic_source": traffic_source,
             "synthetic_driver_enabled": canonical_mode in {"dry_run", "serve_and_simulate"},
+            "browser_tracker_enabled": canonical_mode in {"serve_only", "serve_and_simulate"},
+            "event_source_labels": [
+                "browser_tracker",
+                "landing_demo_server",
+                "landing_demo_inprocess",
+            ],
             "simulated_visitor_count": sum(simulated_assignments.values()),
+            "browser_tracker_event_counts": browser_tracker_event_counts,
+            "browser_tracker_time_spent_seconds": round(browser_time_spent_seconds, 3),
+        },
+        "browser_tracker": {
+            "event_source": "browser_tracker",
+            "event_counts": browser_tracker_event_counts,
+            "time_spent_seconds": round(browser_time_spent_seconds, 3),
+            "click_metadata_examples": browser_click_metadata_examples,
         },
         "metrics": {
             "reward_formula": job.objective_spec.reward_formula,
             "secondary_metrics": job.objective_spec.secondary_metrics,
             "leaders": leaders,
+            "browser_click_metadata_examples": browser_click_metadata_examples,
         },
         "artifacts": {
             "report_json": str(output_dir / "report.json"),

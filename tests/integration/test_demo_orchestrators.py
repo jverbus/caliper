@@ -129,6 +129,12 @@ def test_run_landing_page_demo_serve_and_simulate(tmp_path: Path) -> None:
     assert summary["demo_url"] is not None
     assert summary["report_url"] is not None
     assert summary["winner_arm_id"].startswith("landing-")
+    assert summary["measurement"]["browser_tracker_enabled"] is True
+    assert summary["measurement"]["browser_tracker_event_counts"]["time_spent"] > 0
+    assert summary["measurement"]["browser_tracker_time_spent_seconds"] > 0
+    assert "time_spent" in summary["metrics"]["secondary_metrics"]
+    assert "click_detail" in summary["metrics"]["secondary_metrics"]
+    assert summary["browser_tracker"]["event_source"] == "browser_tracker"
 
 
 def test_run_landing_page_demo_serve_and_simulate_public_base_url(tmp_path: Path) -> None:

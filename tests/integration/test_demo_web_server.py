@@ -80,6 +80,11 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
         landing = http.get(f"/lp/{job_id}")
         assert landing.status_code == 200
         assert "Variant" in landing.text
+        assert "browser_tracker.js" in landing.text
+
+        landing_no_tracker = http.get(f"/lp/{job_id}?browser_tracker=0")
+        assert landing_no_tracker.status_code == 200
+        assert "browser_tracker.js" not in landing_no_tracker.text
 
         click = http.get(f"/lp/{job_id}/click", follow_redirects=False)
         assert click.status_code == 302
@@ -93,6 +98,54 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
         assert convert.status_code == 200
         assert "conversion logged" in convert.text.lower()
 
+        telemetry = http.post(
+            f"/lp/{job_id}/events",
+            json={
+                "events": [
+                    {
+                        "event_type": "time_spent",
+                        "event_id": "evt-time-1",
+                        "value": 6.25,
+                        "metadata": {
+                            "measurement": "visible_time",
+                            "reason": "test",
+                        },
+                    },
+                    {
+                        "event_type": "click_detail",
+                        "event_id": "evt-click-1",
+                        "value": 1.0,
+                        "metadata": {
+                            "tag": "a",
+                            "text": "Learn more",
+                            "caliper_click_role": "cta_primary",
+                        },
+                    },
+                ]
+            },
+        )
+        assert telemetry.status_code == 200
+        telemetry_payload = telemetry.json()
+        assert telemetry_payload["accepted"] == 2
+        assert telemetry_payload["ignored_duplicates"] == 0
+
+        telemetry_retry = http.post(
+            f"/lp/{job_id}/events",
+            json={
+                "events": [
+                    {
+                        "event_type": "time_spent",
+                        "event_id": "evt-time-1",
+                        "value": 6.25,
+                    }
+                ]
+            },
+        )
+        assert telemetry_retry.status_code == 200
+        retry_payload = telemetry_retry.json()
+        assert retry_payload["accepted"] == 0
+        assert retry_payload["ignored_duplicates"] == 1
+
         report = http.get(f"/lp/{job_id}/report")
         assert report.status_code == 200
         payload = report.json()
@@ -105,12 +158,23 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
     outcomes = repository.list_outcomes(job.workspace_id, job_id)
 
     assert len(exposures) >= 1
-    assert len(outcomes) >= 2
+    assert len(outcomes) >= 4
 
     outcome_types: list[str] = []
+    browser_tracker_outcomes = []
     for outcome in outcomes:
+        if outcome.metadata.get("source") == "browser_tracker":
+            browser_tracker_outcomes.append(outcome)
         for event in outcome.events:
             outcome_types.append(event.outcome_type)
 
     assert "click" in outcome_types
     assert "conversion" in outcome_types
+    assert "click_detail" in outcome_types
+    assert "time_spent" in outcome_types
+
+    assert browser_tracker_outcomes
+    assert any(
+        outcome.metadata.get("browser_event_type") == "time_spent"
+        for outcome in browser_tracker_outcomes
+    )

@@ -26,6 +26,7 @@ Behavior:
   - `GET /lp/{job_id}/click` click tracking + redirect
   - `GET /lp/{job_id}/offer` intermediate offer page
   - `POST /lp/{job_id}/convert` conversion tracking
+  - `POST /lp/{job_id}/events` browser tracker telemetry ingest
   - `GET /lp/{job_id}/report` latest report payload
 - Mode behavior:
   - `dry_run`: in-process synthetic simulation
@@ -38,7 +39,16 @@ Behavior:
 - Public URL support for served modes:
   - `--public-base-url https://...` rewrites canonical demo/report URLs in output manifests.
   - `--open-tunnel` starts a Cloudflare quick tunnel after local `/healthz` succeeds.
-- Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, and metrics)
+- Served modes bootstrap browser tracker helpers (`apps/demo_web/static/browser_tracker.js`) with:
+  - retry/backoff queue + localStorage persistence,
+  - beacon/keepalive delivery fallback,
+  - delegated click helper (`click_detail`),
+  - auto visible-time helper (`time_spent`).
+- Tracker toggles can be passed as query params on landing routes: `browser_tracker=0`, `track_time_spent=0`, `track_clicks=0`.
+- Outcome metadata source markers:
+  - `source=browser_tracker` for `/lp/{job_id}/events` ingestion,
+  - `source=landing_demo_server` (real routes) / `source=landing_demo_inprocess` (dry-run simulator) for server-origin events.
+- Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, browser telemetry, and metrics)
 
 Output:
 
@@ -48,6 +58,7 @@ Output:
 - `reports/landing_page_demo/<mode>/server_config.json` (for served modes)
 - `reports/landing_page_demo/<mode>/server.log` (for served modes)
 - `reports/landing_page_demo/<mode>/cloudflared_tunnel.log` (when `--open-tunnel` is used)
+- `winner_summary.json` includes `browser_tracker` section for served telemetry manifests
 
 ## Email demo
 
