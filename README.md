@@ -106,15 +106,20 @@ Set `CALIPER_PROFILE` and related env vars to switch mode. Shared mode enables a
 Top-level scripts for automated demo orchestration:
 
 - `./run_landing_page_demo --topic "..." --variant-count 5 --mode dry_run`
-- `./run_landing_page_demo --topic "..." --variant-count 5 --mode live`
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_only --backend embedded --observe-seconds 180`
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode serve_and_simulate --backend embedded`
+- `./run_landing_page_demo --topic "..." --variant-count 5 --mode live` (alias for `serve_and_simulate`)
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run`
 - `./run_email_demo --topic "..." --recipients "a@example.com,b@example.com" --variant-count 5 --mode live`
 
 Mode semantics (current):
 
 - Landing `dry_run`: synthetic in-process simulation.
-- Landing `live`: local server + synthetic closed-loop traffic (not external visitor traffic yet).
+- Landing `serve_only`: real FastAPI demo server + tracked routes, no synthetic traffic driver.
+- Landing `serve_and_simulate`: real FastAPI demo server + synthetic visitor driver against real endpoints.
+- Landing `live`: alias for `serve_and_simulate`.
+- Landing supports `--backend embedded|service` for the same orchestrator flow.
 - Email `dry_run`: synthetic delivery provider and synthetic outcome events.
 - Email `live`: **real Gmail SMTP send path only**; command fails fast if Gmail credentials are missing.
 
-Each run writes report artifacts and `winner_summary.json` under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
+Each run writes report artifacts plus a machine-readable `winner_summary.json` manifest under `reports/landing_page_demo/<mode>/` or `reports/email_demo/<mode>/`.
