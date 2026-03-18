@@ -32,7 +32,7 @@ Behavior:
 - Supports backend selection:
   - `--backend embedded` → `EmbeddedCaliperClient`
   - `--backend service` → `ServiceCaliperClient --api-url ...`
-- Generates report artifacts and `winner_summary.json` (including traffic source + URLs)
+- Generates report artifacts and canonical `winner_summary.json` (backend/mode/provider, URLs, traffic source, and metrics)
 
 Output:
 
@@ -47,27 +47,42 @@ Output:
 Command:
 
 ```bash
-./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run
-./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode live
+./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend embedded
+./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode dry_run --backend service --api-url http://127.0.0.1:8000
+./run_email_demo --topic "Caliper email demo" --recipients "a@example.com,b@example.com" --variant-count 5 --mode live --backend embedded
 ```
 
 Behavior:
 
 - Generates `variant_count` email subject variants and registers as arms
+- Supports both backends:
+  - `--backend embedded` → `EmbeddedCaliperClient`
+  - `--backend service` → `ServiceCaliperClient --api-url ...`
 - Uses tranche planning + provider seam (`DryRunProvider`)
 - Includes Gmail provider scaffold (`GmailProvider`) for real sends in `live` mode:
   - required: `GMAIL_SMTP_USER`
   - required: `GMAIL_SMTP_APP_PASSWORD`
   - optional: `GMAIL_SMTP_FROM`
-- In `live` mode, missing Gmail credentials now fail fast (no silent fallback to dry-run provider)
-- Logs delayed open/click/conversion and unsubscribe outcomes
-- Executes policy-update worker tasks between tranches to demonstrate adaptation
-- Generates report artifacts and `winner_summary.json`
+- In `live` mode, missing Gmail credentials fail fast (no silent fallback to dry-run provider)
+- Starts `apps.demo_email` tracking server and wires message links to tracked endpoints:
+  - `GET /email/{job_id}/click` (tracked click)
+  - `GET|POST /email/{job_id}/convert` (tracked conversion)
+  - `GET|POST /email/{job_id}/reply` (reply-signal ingest)
+- `dry_run` uses a synthetic tracked-route driver so click/conversion/reply signals flow through those routes
+- `live` defaults to real-send-only behavior (no synthetic tracked-route driver); use `--simulate-tracked-events` to opt in
+- Open/unsubscribe demo signals remain synthetic webhook events when synthetic driving is enabled
+- Embedded backend runs inline policy-update worker ticks between tranches; service backend expects an external worker
+- Generates report artifacts plus a canonical `winner_summary.json` manifest containing backend/mode/provider, tracked URLs, measurement mode, metrics, and artifact paths
+- Writes `dispatch_manifest.json` with per-recipient decision IDs and tracked URLs for replay/audit
+- Reply signal first-step ingest command is available via `scripts/ingest_email_reply_signal.py`
 
 Output:
 
 - `reports/email_demo/<mode>/report.{json,md,html}`
 - `reports/email_demo/<mode>/winner_summary.json`
+- `reports/email_demo/<mode>/dispatch_manifest.json`
+- `reports/email_demo/<mode>/tracking_server_config.json`
+- `reports/email_demo/<mode>/tracking_server.log`
 
 ## Validation
 
@@ -76,4 +91,5 @@ Output:
 - `make test`
 - `./run_landing_page_demo ... --mode dry_run`
 - `./run_landing_page_demo ... --mode serve_and_simulate --backend embedded`
-- `./run_email_demo ... --mode dry_run`
+- `./run_email_demo ... --mode dry_run --backend embedded`
+- `./run_email_demo ... --mode dry_run --backend service --api-url http://127.0.0.1:8000`

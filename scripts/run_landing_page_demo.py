@@ -480,24 +480,58 @@ def run_landing_page_demo(
     winner = leaders[0]["arm_id"] if leaders else "unknown"
 
     output_dir.mkdir(parents=True, exist_ok=True)
+    traffic_source = {
+        "dry_run": "synthetic_simulation",
+        "serve_only": "real_visitor_traffic_only",
+        "serve_and_simulate": "real_endpoints_plus_synthetic_driver",
+    }[canonical_mode]
+
     summary = {
+        "manifest_version": "demo-orchestrator-landing-v2",
+        "surface": "web",
         "topic": topic,
         "mode": canonical_mode,
         "backend": backend,
+        "provider_mode": {
+            "dry_run": "inprocess-simulator",
+            "serve_only": "http-server",
+            "serve_and_simulate": "http-server-plus-synthetic-driver",
+        }[canonical_mode],
         "variant_count": variant_count,
         "winner_arm_id": winner,
         "simulated_assignment_counts": simulated_assignments,
-        "traffic_source": {
-            "dry_run": "synthetic_simulation",
-            "serve_only": "real_visitor_traffic_only",
-            "serve_and_simulate": "real_endpoints_plus_synthetic_driver",
-        }[canonical_mode],
+        "traffic_source": traffic_source,
         "demo_url": demo_url,
         "report_url": report_url,
         "report_id": report_dict["report_id"],
         "job_id": report_dict["job_id"],
         "variants_dir": str(variants_dir),
         "server_log": str(server_log_path) if server_log_path else None,
+        "urls": {
+            "demo_url": demo_url,
+            "report_url": report_url,
+        },
+        "measurement": {
+            "traffic_source": traffic_source,
+            "synthetic_driver_enabled": canonical_mode in {"dry_run", "serve_and_simulate"},
+            "simulated_visitor_count": sum(simulated_assignments.values()),
+        },
+        "metrics": {
+            "reward_formula": job.objective_spec.reward_formula,
+            "secondary_metrics": job.objective_spec.secondary_metrics,
+            "leaders": leaders,
+        },
+        "artifacts": {
+            "report_json": str(output_dir / "report.json"),
+            "report_md": str(output_dir / "report.md"),
+            "report_html": str(output_dir / "report.html"),
+            "winner_summary_json": str(output_dir / "winner_summary.json"),
+            "variants_dir": str(variants_dir),
+            "server_config": str(output_dir / "server_config.json")
+            if canonical_mode != "dry_run"
+            else None,
+            "server_log": str(server_log_path) if server_log_path else None,
+        },
     }
 
     (output_dir / "report.json").write_text(

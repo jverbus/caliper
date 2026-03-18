@@ -161,6 +161,15 @@ def test_ingest_webhook_maps_event_types_to_outcomes() -> None:
             occurred_at=occurred_at,
         )
     )
+    reply_outcome = adapter.ingest_webhook(
+        event=EmailWebhookEvent(
+            webhook_event_id="evt-reply-1",
+            webhook_type=EmailWebhookType.REPLY,
+            recipient_id="u-501",
+            decision_id="dec-u-501",
+            occurred_at=occurred_at,
+        )
+    )
     complaint_outcome = adapter.ingest_webhook(
         event=EmailWebhookEvent(
             webhook_event_id="evt-complaint-1",
@@ -175,6 +184,9 @@ def test_ingest_webhook_maps_event_types_to_outcomes() -> None:
     assert open_outcome is not None
     assert open_outcome.events[0].outcome_type == "email_open"
     assert open_outcome.events[0].timestamp == occurred_at
+
+    assert reply_outcome is not None
+    assert reply_outcome.events[0].outcome_type == "email_reply"
 
     assert complaint_outcome is not None
     assert complaint_outcome.events[0].outcome_type == "email_complaint"
