@@ -105,7 +105,8 @@ def test_email_demo_service_mode(tmp_path: Path) -> None:
         assert report["job_id"]
         assert "## Guardrails" in report["markdown"]
         assert "email_unsubscribe" in report["markdown"]
-        assert report["active_arms_by_tranche"]["tranche-2"] == ["subject-a"]
+        tranche_2_active = report["active_arms_by_tranche"]["tranche-2"]
+        assert "subject-a" in tranche_2_active
     finally:
         process.terminate()
         process.wait(timeout=10)

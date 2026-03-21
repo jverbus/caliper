@@ -378,3 +378,71 @@ class ReportPayload(BaseModel):
     statistics: StatisticalDiagnostics = Field(default_factory=StatisticalDiagnostics)
     markdown: str
     html: str
+
+
+class AutotuneCandidateCreate(BaseModel):
+    experiment_id: str
+    candidate_type: str = "prompt"
+    parent_candidate_id: str | None = None
+    editable_surface: str
+    content: dict[str, Any] = Field(default_factory=dict)
+    complexity_score: float = Field(default=0.0, ge=0.0)
+
+
+class AutotuneCandidate(BaseModel):
+    candidate_id: str = Field(default_factory=lambda: new_id("atcand"))
+    experiment_id: str
+    candidate_type: str
+    parent_candidate_id: str | None = None
+    editable_surface: str
+    content: dict[str, Any] = Field(default_factory=dict)
+    complexity_score: float = Field(default=0.0, ge=0.0)
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AutotuneRunCreate(BaseModel):
+    experiment_id: str
+    candidate_id: str
+    baseline_candidate_id: str
+    simulation_config_snapshot: dict[str, Any] = Field(default_factory=dict)
+    seed: int
+    budget: int = Field(default=1000, ge=1)
+    evaluator_version: str = "fixed-v1"
+
+
+class AutotuneRun(BaseModel):
+    run_id: str = Field(default_factory=lambda: new_id("atrun"))
+    experiment_id: str
+    candidate_id: str
+    baseline_candidate_id: str
+    simulation_config_snapshot: dict[str, Any] = Field(default_factory=dict)
+    seed: int
+    budget: int = Field(default=1000, ge=1)
+    status: str = "completed"
+    evaluator_version: str = "fixed-v1"
+    started_at: datetime = Field(default_factory=utc_now)
+    ended_at: datetime | None = Field(default_factory=utc_now)
+
+
+class AutotuneResult(BaseModel):
+    result_id: str = Field(default_factory=lambda: new_id("atres"))
+    run_id: str
+    candidate_id: str
+    score: float
+    score_breakdown: dict[str, float] = Field(default_factory=dict)
+    decision_summary_snapshot: dict[str, Any] = Field(default_factory=dict)
+    analytics_snapshot: dict[str, Any] = Field(default_factory=dict)
+    keep_discard: str = "pending"
+    reason: str | None = None
+    hard_fail_code: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)
+
+
+class AutotunePromotion(BaseModel):
+    promotion_id: str = Field(default_factory=lambda: new_id("atpromo"))
+    candidate_id: str
+    promoted_by: str
+    target_surface: str
+    confirmation: str
+    diff_summary: str | None = None
+    created_at: datetime = Field(default_factory=utc_now)

@@ -242,3 +242,60 @@ class ScheduledTaskRow(Base):
             "due_at",
         ),
     )
+
+
+class AutotuneCandidateRow(Base):
+    __tablename__ = "autotune_candidates"
+
+    candidate_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(String(128), index=True)
+    candidate_type: Mapped[str] = mapped_column(String(64))
+    parent_candidate_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    editable_surface: Mapped[str] = mapped_column(String(255))
+    content_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    complexity_score: Mapped[float] = mapped_column(Float, default=0.0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AutotuneRunRow(Base):
+    __tablename__ = "autotune_runs"
+
+    run_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    experiment_id: Mapped[str] = mapped_column(String(128), index=True)
+    candidate_id: Mapped[str] = mapped_column(String(64), index=True)
+    baseline_candidate_id: Mapped[str] = mapped_column(String(64), index=True)
+    simulation_config_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    seed: Mapped[int] = mapped_column(Integer)
+    budget: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    evaluator_version: Mapped[str] = mapped_column(String(64))
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    ended_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AutotuneResultRow(Base):
+    __tablename__ = "autotune_results"
+
+    result_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(String(64), index=True)
+    candidate_id: Mapped[str] = mapped_column(String(64), index=True)
+    score: Mapped[float] = mapped_column(Float)
+    score_breakdown_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    decision_summary_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    analytics_snapshot_json: Mapped[dict[str, object]] = mapped_column(JSON)
+    keep_discard: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    hard_fail_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+
+
+class AutotunePromotionRow(Base):
+    __tablename__ = "autotune_promotions"
+
+    promotion_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    candidate_id: Mapped[str] = mapped_column(String(64), index=True)
+    promoted_by: Mapped[str] = mapped_column(String(128))
+    target_surface: Mapped[str] = mapped_column(String(255))
+    confirmation: Mapped[str] = mapped_column(String(255))
+    diff_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
