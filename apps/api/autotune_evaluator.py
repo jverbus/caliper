@@ -7,10 +7,10 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
+from caliper_core.decision import DecisionRecommendation
 from pydantic import BaseModel, Field
 
 from apps.api.decision_service import get_decision_summary
-from caliper_core.decision import DecisionRecommendation
 
 
 class FrozenEvaluatorConfig(BaseModel):

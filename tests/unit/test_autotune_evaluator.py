@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from caliper_core.decision import DecisionRecommendation
+
 from apps.api.autotune_evaluator import (
     CandidateConfig,
     FrozenEvaluatorConfig,
     evaluate_fixed_score,
 )
-from caliper_core.decision import DecisionRecommendation
 
 
 def test_same_candidate_and_seed_yields_same_score() -> None:
@@ -54,7 +55,10 @@ def test_guardrail_regression_forces_hard_fail_rollback() -> None:
 
     rollback_result = None
     for seed in range(1, 500):
-        result = evaluate_fixed_score(candidate=candidate, frozen_config=FrozenEvaluatorConfig(seed=seed))
+        result = evaluate_fixed_score(
+            candidate=candidate,
+            frozen_config=FrozenEvaluatorConfig(seed=seed),
+        )
         if result.recommendation == DecisionRecommendation.ROLLBACK:
             rollback_result = result
             break
