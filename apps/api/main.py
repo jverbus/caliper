@@ -40,6 +40,7 @@ from caliper_storage import SQLRepository
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Engine
 
+from apps.api.decision_service import get_decision_summary
 from apps.api.dependencies import (
     get_engine,
     get_repository,
@@ -339,6 +340,11 @@ def create_app() -> FastAPI:
     @app.get("/v1/system/info", dependencies=[Depends(require_api_token)])
     def system_info() -> dict[str, str]:
         return {"service": "caliper-api", "api_version": "v1"}
+
+    @app.get("/decision/summary")
+    def decision_summary(guardrail_regression: bool | None = None) -> dict[str, str]:
+        summary = get_decision_summary(guardrail_regression=guardrail_regression)
+        return summary.model_dump(mode="json")
 
     @app.post(
         "/v1/jobs",
