@@ -2,7 +2,8 @@ from __future__ import annotations
 
 import hashlib
 import json
-from typing import Annotated
+from collections.abc import Mapping
+from typing import Annotated, Any
 
 from caliper_core.context import ContextValidationError, validate_and_redact_context
 from caliper_core.events import EventEnvelope
@@ -72,6 +73,105 @@ _ALLOWED_AUTOTUNE_EDITABLE_SURFACES = {
     "demo_ad_copy_templates",
     "demo_scenario_definitions",
 }
+
+_AUTOTUNE_KEEP_MIN_DELTA = 0.01
+_AUTOTUNE_MAX_COMPLEXITY_PENALTY = 0.08
+
+
+def _count_changed_fields(candidate: Any, baseline: Any) -> int:
+    if isinstance(candidate, Mapping) and isinstance(baseline, Mapping):
+        changed = 0
+        keys = set(candidate.keys()) | set(baseline.keys())
+        for key in keys:
+            if key not in candidate or key not in baseline:
+                changed += 1
+                continue
+            changed += _count_changed_fields(candidate[key], baseline[key])
+        return changed
+    if isinstance(candidate, list) and isinstance(baseline, list):
+        changed = abs(len(candidate) - len(baseline))
+        for left, right in zip(candidate, baseline, strict=False):
+            changed += _count_changed_fields(left, right)
+        return changed
+    return 0 if candidate == baseline else 1
+
+
+def _complexity_inputs(
+    *,
+    candidate_content: dict[str, Any],
+    baseline_content: dict[str, Any],
+) -> dict[str, float]:
+    changed_fields = float(_count_changed_fields(candidate_content, baseline_content))
+    changed_top_level = [
+        key
+        for key in set(candidate_content.keys()) | set(baseline_content.keys())
+        if candidate_content.get(key) != baseline_content.get(key)
+    ]
+    non_default_knobs_touched = float(len([key for key in changed_top_level if key != "prompt"]))
+    prompt_length_delta = float(
+        abs(
+            len(str(candidate_content.get("prompt", "")))
+            - len(str(baseline_content.get("prompt", "")))
+        )
+    )
+    artifacts_touched = float(max(1, len(changed_top_level))) if changed_top_level else 0.0
+    return {
+        "prompt_length_delta": prompt_length_delta,
+        "changed_fields": changed_fields,
+        "non_default_knobs_touched": non_default_knobs_touched,
+        "artifacts_touched": artifacts_touched,
+    }
+
+
+def _derived_complexity_score(
+    *,
+    candidate_content: dict[str, Any],
+    baseline_content: dict[str, Any],
+    declared_complexity_score: float,
+) -> tuple[float, dict[str, float]]:
+    inputs = _complexity_inputs(
+        candidate_content=candidate_content,
+        baseline_content=baseline_content,
+    )
+    derived = min(
+        1.0,
+        (inputs["prompt_length_delta"] / 200.0)
+        + (inputs["changed_fields"] / 20.0)
+        + (inputs["non_default_knobs_touched"] / 10.0)
+        + (inputs["artifacts_touched"] / 5.0),
+    )
+    return max(float(declared_complexity_score), derived), inputs
+
+
+def _autotune_disposition(
+    *,
+    candidate_score: float,
+    baseline_score: float,
+    complexity_penalty: float,
+    hard_fail_code: str | None,
+) -> tuple[str, str]:
+    if hard_fail_code:
+        return "discard", f"discarded: hard fail ({hard_fail_code})"
+
+    delta = candidate_score - baseline_score
+    if delta <= _AUTOTUNE_KEEP_MIN_DELTA:
+        return (
+            "discard",
+            f"discarded: delta {delta:.4f} <= keep threshold {_AUTOTUNE_KEEP_MIN_DELTA:.4f}",
+        )
+
+    if complexity_penalty > _AUTOTUNE_MAX_COMPLEXITY_PENALTY:
+        return (
+            "discard",
+            "discarded: complexity penalty "
+            f"{complexity_penalty:.4f} > max {_AUTOTUNE_MAX_COMPLEXITY_PENALTY:.4f}",
+        )
+
+    return (
+        "keep",
+        f"kept: delta {delta:.4f} > {_AUTOTUNE_KEEP_MIN_DELTA:.4f} with complexity "
+        f"penalty {complexity_penalty:.4f}",
+    )
 
 
 def _transition_job_state(
@@ -151,11 +251,17 @@ def _validate_autotune_editable_surface(surface: str) -> str:
     return normalized
 
 
-def _to_candidate_config(candidate: AutotuneCandidate) -> CandidateConfig:
+def _to_candidate_config(
+    candidate: AutotuneCandidate,
+    *,
+    complexity_score: float | None = None,
+) -> CandidateConfig:
     return CandidateConfig(
         candidate_id=candidate.candidate_id,
         content=candidate.content,
-        complexity_score=candidate.complexity_score,
+        complexity_score=(
+            candidate.complexity_score if complexity_score is None else complexity_score
+        ),
     )
 
 
@@ -436,13 +542,30 @@ def create_app() -> FastAPI:
             synthetic_user_budget=payload.budget,
             **payload.simulation_config_snapshot,
         )
+        candidate_complexity_score, complexity_inputs = _derived_complexity_score(
+            candidate_content=candidate.content,
+            baseline_content=baseline.content,
+            declared_complexity_score=candidate.complexity_score,
+        )
+
         baseline_eval = evaluate_fixed_score(
             candidate=_to_candidate_config(baseline),
             frozen_config=frozen,
         )
         eval_result = evaluate_fixed_score(
-            candidate=_to_candidate_config(candidate),
+            candidate=_to_candidate_config(candidate, complexity_score=candidate_complexity_score),
             frozen_config=frozen,
+        )
+
+        candidate_score = eval_result.score
+        baseline_score = baseline_eval.score
+        delta_vs_baseline = candidate_score - baseline_score
+        complexity_penalty = eval_result.score_breakdown.get("complexity_penalty", 0.0)
+        keep_discard, disposition_reason = _autotune_disposition(
+            candidate_score=candidate_score,
+            baseline_score=baseline_score,
+            complexity_penalty=complexity_penalty,
+            hard_fail_code=eval_result.hard_fail_code,
         )
 
         run = repository.create_autotune_run(AutotuneRun(**payload.model_dump()))
@@ -450,17 +573,20 @@ def create_app() -> FastAPI:
             AutotuneResult(
                 run_id=run.run_id,
                 candidate_id=run.candidate_id,
-                score=eval_result.score,
+                score=candidate_score,
                 score_breakdown={
                     **eval_result.score_breakdown,
-                    "candidate_score": eval_result.score,
-                    "baseline_score": baseline_eval.score,
-                    "delta_vs_baseline": eval_result.score - baseline_eval.score,
+                    "candidate_score": candidate_score,
+                    "baseline_score": baseline_score,
+                    "delta_vs_baseline": delta_vs_baseline,
+                    **complexity_inputs,
                 },
                 decision_summary_snapshot={
                     "recommendation": eval_result.recommendation,
                 },
                 analytics_snapshot=eval_result.analytics_snapshot.model_dump(mode="json"),
+                keep_discard=keep_discard,
+                reason=disposition_reason,
                 hard_fail_code=eval_result.hard_fail_code,
             )
         )
