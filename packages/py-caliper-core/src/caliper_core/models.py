@@ -444,5 +444,8 @@ class AutotunePromotion(BaseModel):
     promoted_by: str
     target_surface: str
     confirmation: str
+    run_id: str
     diff_summary: str | None = None
+    promoted_content: dict[str, Any] = Field(default_factory=dict)
+    replay_check: dict[str, Any] = Field(default_factory=dict)
     created_at: datetime = Field(default_factory=utc_now)
