@@ -90,9 +90,8 @@ def test_email_demo_service_mode(tmp_path: Path) -> None:
         ],
         cwd=str(REPO_ROOT),
         env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     try:
         _wait_for_ready(f"http://127.0.0.1:{port}/health")

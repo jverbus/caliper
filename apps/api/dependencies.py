@@ -90,6 +90,15 @@ def readiness_check(engine: Engine) -> dict[str, str]:
     return {"status": "ready"}
 
 
+def reset_dependency_caches() -> None:
+    """Clear dependency caches and dispose any cached engine first."""
+    if _cached_engine.cache_info().currsize:
+        _cached_engine().dispose()
+    _cached_session_factory.cache_clear()
+    _cached_engine.cache_clear()
+    get_settings.cache_clear()
+
+
 def iter_request_scope() -> Generator[str, None, None]:
     """Placeholder dependency hook for request-scoped wiring in later chunks."""
     yield "request-scope"

@@ -124,16 +124,34 @@ class ServiceCaliperClient:
         )
         return ReportPayload.model_validate(body)
 
+    def close(self) -> None:
+        return None
+
 
 class EmbeddedCaliperClient:
     """In-process SDK client backed by local repositories."""
 
     def __init__(self, *, db_url: str = "sqlite:///./data/caliper-sdk.db") -> None:
-        engine = build_engine(db_url)
-        init_db(engine)
-        self._repository = SQLRepository(make_session_factory(engine))
+        self._engine = build_engine(db_url)
+        init_db(self._engine)
+        self._repository = SQLRepository(make_session_factory(self._engine))
         self._assignment_engine = AssignmentEngine()
         self._report_generator = ReportGenerator()
+
+    def close(self) -> None:
+        self._engine.dispose()
+
+    def __enter__(self) -> EmbeddedCaliperClient:
+        return self
+
+    def __exit__(self, exc_type: object, exc: object, tb: object) -> None:
+        self.close()
+
+    def __del__(self) -> None:
+        try:
+            self.close()
+        except Exception:
+            pass
 
     def create_job(self, payload: Job) -> Job:
         return self._repository.create_job(payload)

@@ -10,9 +10,7 @@ from apps.api.main import create_app
 
 
 def _reset_dependency_caches() -> None:
-    dependencies.get_settings.cache_clear()
-    dependencies._cached_engine.cache_clear()
-    dependencies._cached_session_factory.cache_clear()
+    dependencies.reset_dependency_caches()
 
 
 def test_autotune_lifecycle_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:

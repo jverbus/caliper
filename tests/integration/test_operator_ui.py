@@ -9,9 +9,7 @@ from apps.operator_ui.main import create_app
 
 
 def _reset_dependency_caches() -> None:
-    dependencies.get_settings.cache_clear()
-    dependencies._cached_engine.cache_clear()
-    dependencies._cached_session_factory.cache_clear()
+    dependencies.reset_dependency_caches()
 
 
 def _job_payload(name: str, workspace_id: str) -> dict[str, object]:
