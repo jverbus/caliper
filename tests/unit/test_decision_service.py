@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from apps.api.decision_service import get_decision_summary
 from caliper_core.decision import DecisionRecommendation
+
+from apps.api.decision_service import get_decision_summary
 
 
 def test_guardrail_regression_true_returns_rollback() -> None:
