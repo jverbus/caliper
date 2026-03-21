@@ -65,6 +65,14 @@ _JOB_TRANSITIONS: dict[JobStatus, set[JobStatus]] = {
     JobStatus.ARCHIVED: set(),
 }
 
+_ALLOWED_AUTOTUNE_EDITABLE_SURFACES = {
+    "mcp_prompt_text",
+    "caliper://agent_playbook",
+    "experiment_template_json",
+    "demo_ad_copy_templates",
+    "demo_scenario_definitions",
+}
+
 
 def _transition_job_state(
     *,
@@ -127,6 +135,28 @@ def _request_hash(payload: object) -> str:
 
 def _assign_request_hash(payload: AssignRequest) -> str:
     return _request_hash(payload)
+
+
+def _validate_autotune_editable_surface(surface: str) -> str:
+    normalized = surface.strip()
+    if normalized not in _ALLOWED_AUTOTUNE_EDITABLE_SURFACES:
+        allowed = ", ".join(sorted(_ALLOWED_AUTOTUNE_EDITABLE_SURFACES))
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=(
+                f"editable_surface '{surface}' is not allowed in v1. "
+                f"Allowed surfaces: {allowed}"
+            ),
+        )
+    return normalized
+
+
+def _to_candidate_config(candidate: AutotuneCandidate) -> CandidateConfig:
+    return CandidateConfig(
+        candidate_id=candidate.candidate_id,
+        content=candidate.content,
+        complexity_score=candidate.complexity_score,
+    )
 
 
 def _is_contextual_runtime_snapshot(snapshot: PolicySnapshot) -> bool:
@@ -370,7 +400,10 @@ def create_app() -> FastAPI:
         payload: AutotuneCandidateCreate,
         repository: Annotated[SQLRepository, Depends(get_repository)],
     ) -> AutotuneCandidate:
-        candidate = repository.create_autotune_candidate(AutotuneCandidate(**payload.model_dump()))
+        editable_surface = _validate_autotune_editable_surface(payload.editable_surface)
+        candidate_payload = payload.model_dump()
+        candidate_payload["editable_surface"] = editable_surface
+        candidate = repository.create_autotune_candidate(AutotuneCandidate(**candidate_payload))
         return candidate
 
     @app.get(
@@ -403,12 +436,12 @@ def create_app() -> FastAPI:
             synthetic_user_budget=payload.budget,
             **payload.simulation_config_snapshot,
         )
+        baseline_eval = evaluate_fixed_score(
+            candidate=_to_candidate_config(baseline),
+            frozen_config=frozen,
+        )
         eval_result = evaluate_fixed_score(
-            candidate=CandidateConfig(
-                candidate_id=candidate.candidate_id,
-                content=candidate.content,
-                complexity_score=candidate.complexity_score,
-            ),
+            candidate=_to_candidate_config(candidate),
             frozen_config=frozen,
         )
 
@@ -418,7 +451,12 @@ def create_app() -> FastAPI:
                 run_id=run.run_id,
                 candidate_id=run.candidate_id,
                 score=eval_result.score,
-                score_breakdown=eval_result.score_breakdown,
+                score_breakdown={
+                    **eval_result.score_breakdown,
+                    "candidate_score": eval_result.score,
+                    "baseline_score": baseline_eval.score,
+                    "delta_vs_baseline": eval_result.score - baseline_eval.score,
+                },
                 decision_summary_snapshot={
                     "recommendation": eval_result.recommendation,
                 },

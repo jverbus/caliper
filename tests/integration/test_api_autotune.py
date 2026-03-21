@@ -74,6 +74,10 @@ def test_autotune_lifecycle_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     result = client.get(f"/v1/autotune/runs/{run_id}/result")
     assert result.status_code == 200
     assert result.json()["run_id"] == run_id
+    score_breakdown = result.json()["score_breakdown"]
+    assert "candidate_score" in score_breakdown
+    assert "baseline_score" in score_breakdown
+    assert "delta_vs_baseline" in score_breakdown
 
     kept = client.post(
         f"/v1/autotune/runs/{run_id}/keep",
@@ -97,3 +101,24 @@ def test_autotune_lifecycle_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
     exported = client.get("/v1/autotune/export.jsonl", params={"experiment_id": experiment_id})
     assert exported.status_code == 200
     assert run_id in exported.json()["jsonl"]
+
+
+def test_autotune_candidate_rejects_forbidden_surface(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/v1/autotune/candidates",
+        json={
+            "experiment_id": f"exp-{uuid4().hex[:8]}",
+            "candidate_type": "prompt",
+            "editable_surface": "decision_service.py",
+            "content": {"prompt": "not allowed"},
+            "complexity_score": 0.1,
+        },
+    )
+    assert response.status_code == 400
+    assert "not allowed in v1" in response.json()["detail"]
