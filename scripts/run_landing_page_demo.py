@@ -25,51 +25,13 @@ from caliper_core.models import (
     SegmentSpec,
     SurfaceType,
 )
-from caliper_sdk import EmbeddedCaliperClient, ServiceCaliperClient
 
+from scripts.demo_workflow import build_client, demo_pythonpath, extract_job_id, wait_for_server
 from scripts.tunnel_helpers import (
     QuickTunnelHandle,
     normalize_public_base_url,
     start_cloudflared_quick_tunnel,
 )
-
-
-def _build_client(
-    *,
-    backend: str,
-    db_url: str,
-    api_url: str,
-    api_token: str | None,
-) -> EmbeddedCaliperClient | ServiceCaliperClient:
-    if backend == "service":
-        return ServiceCaliperClient(api_url=api_url, api_token=api_token)
-    if backend == "embedded":
-        return EmbeddedCaliperClient(db_url=db_url)
-    msg = f"Unsupported backend: {backend!r}"
-    raise ValueError(msg)
-
-
-def _extract_job_id(created: dict[str, Any] | Job) -> str:
-    return created["job_id"] if isinstance(created, dict) else created.job_id
-
-
-def _demo_pythonpath(repo_root: Path) -> str:
-    entries = [
-        str(repo_root),
-        str(repo_root / "packages/py-caliper-core/src"),
-        str(repo_root / "packages/py-caliper-storage/src"),
-        str(repo_root / "packages/py-caliper-events/src"),
-        str(repo_root / "packages/py-caliper-policies/src"),
-        str(repo_root / "packages/py-caliper-reward/src"),
-        str(repo_root / "packages/py-caliper-reports/src"),
-        str(repo_root / "packages/py-caliper-adapters/src"),
-        str(repo_root / "packages/py-sdk/src"),
-        str(repo_root / "apps"),
-    ]
-    existing = os.environ.get("PYTHONPATH")
-    if existing:
-        entries.append(existing)
-    return os.pathsep.join(entries)
 
 
 def _variant_html(*, topic: str, index: int, variant_count: int) -> str:
@@ -265,20 +227,6 @@ def _run_inprocess_simulation(
     return assignments
 
 
-def _wait_for_server(*, base_url: str, timeout_seconds: float = 20.0) -> None:
-    deadline = time.time() + timeout_seconds
-    while time.time() < deadline:
-        try:
-            response = httpx.get(f"{base_url}/healthz", timeout=1.5)
-            if response.status_code == 200:
-                return
-        except httpx.HTTPError:
-            pass
-        time.sleep(0.2)
-    msg = f"Landing demo server did not become healthy within {timeout_seconds:.1f}s"
-    raise RuntimeError(msg)
-
-
 def _run_http_simulation(
     *,
     base_url: str,
@@ -424,7 +372,7 @@ def run_landing_page_demo(
         normalize_public_base_url(public_base_url) if public_base_url else None
     )
 
-    client = _build_client(
+    client = build_client(
         backend=backend,
         db_url=db_url,
         api_url=api_url,
@@ -453,7 +401,7 @@ def run_landing_page_demo(
         segment_spec=SegmentSpec(dimensions=["country", "device", "referrer"]),
     )
     created = client.create_job(job)
-    job_id = _extract_job_id(created)
+    job_id = extract_job_id(created)
 
     mode_output = "live" if canonical_mode == "serve_and_simulate" else canonical_mode
     output_dir = Path(output_root) / mode_output
@@ -520,7 +468,7 @@ def run_landing_page_demo(
         repo_root = Path(__file__).resolve().parents[1]
         env = os.environ.copy()
         env["CALIPER_DEMO_WEB_CONFIG"] = str(config_path.resolve())
-        env["PYTHONPATH"] = _demo_pythonpath(repo_root)
+        env["PYTHONPATH"] = demo_pythonpath(repo_root)
         log_handle = server_log_path.open("w", encoding="utf-8")
         process = subprocess.Popen(
             [
@@ -543,7 +491,7 @@ def run_landing_page_demo(
         local_report_url = f"{local_base_url}/lp/{job_id}/report"
 
         try:
-            _wait_for_server(base_url=local_base_url)
+            wait_for_server(base_url=local_base_url, server_name="Landing demo server")
 
             if open_tunnel:
                 tunnel_handle = start_cloudflared_quick_tunnel(

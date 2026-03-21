@@ -49,6 +49,7 @@ from caliper_storage.sqlalchemy_models import ScheduledTaskRow
 from sqlalchemy.orm import Session, sessionmaker
 
 from apps.worker.loop import WorkerLoop
+from scripts.demo_workflow import build_client, demo_pythonpath, extract_job_id, wait_for_server
 from scripts.tunnel_helpers import (
     QuickTunnelHandle,
     normalize_public_base_url,
@@ -201,62 +202,10 @@ class GmailProvider:
         return DeliveryResult(provider=self.provider_name, delivered_at=now, records=records)
 
 
-def _build_client(
-    *,
-    backend: str,
-    db_url: str,
-    api_url: str,
-    api_token: str | None,
-) -> DemoClient:
-    if backend == "service":
-        return ServiceCaliperClient(api_url=api_url, api_token=api_token)
-    if backend == "embedded":
-        return EmbeddedCaliperClient(db_url=db_url)
-    msg = f"Unsupported backend: {backend!r}"
-    raise ValueError(msg)
-
-
-def _extract_job_id(created: dict[str, Any] | Job) -> str:
-    return created["job_id"] if isinstance(created, dict) else created.job_id
-
-
-def _demo_pythonpath(repo_root: Path) -> str:
-    entries = [
-        str(repo_root),
-        str(repo_root / "packages/py-caliper-core/src"),
-        str(repo_root / "packages/py-caliper-storage/src"),
-        str(repo_root / "packages/py-caliper-events/src"),
-        str(repo_root / "packages/py-caliper-policies/src"),
-        str(repo_root / "packages/py-caliper-reward/src"),
-        str(repo_root / "packages/py-caliper-reports/src"),
-        str(repo_root / "packages/py-caliper-adapters/src"),
-        str(repo_root / "packages/py-sdk/src"),
-        str(repo_root / "apps"),
-    ]
-    existing = os.environ.get("PYTHONPATH")
-    if existing:
-        entries.append(existing)
-    return os.pathsep.join(entries)
-
-
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
         sock.bind(("127.0.0.1", 0))
         return int(sock.getsockname()[1])
-
-
-def _wait_for_server(*, base_url: str, timeout_seconds: float = 20.0) -> None:
-    deadline = time.time() + timeout_seconds
-    while time.time() < deadline:
-        try:
-            response = httpx.get(f"{base_url}/healthz", timeout=1.5)
-            if response.status_code == 200:
-                return
-        except httpx.HTTPError:
-            pass
-        time.sleep(0.2)
-    msg = f"Email tracking demo server did not become healthy within {timeout_seconds:.1f}s"
-    raise RuntimeError(msg)
 
 
 def _active_arm_ids(client: DemoClient, *, workspace_id: str, job_id: str) -> list[str]:
@@ -448,7 +397,7 @@ def run_email_demo(
     )
 
     workspace_id = "ws-email-orchestrator-demo"
-    client = _build_client(
+    client = build_client(
         backend=backend,
         db_url=db_url,
         api_url=api_url,
@@ -491,7 +440,7 @@ def run_email_demo(
         ),
     )
     created = client.create_job(job)
-    job_id = _extract_job_id(created)
+    job_id = extract_job_id(created)
 
     arms = [
         ArmInput(
@@ -606,7 +555,7 @@ def run_email_demo(
         repo_root = Path(__file__).resolve().parents[1]
         env = os.environ.copy()
         env["CALIPER_DEMO_EMAIL_CONFIG"] = str(tracking_config_path.resolve())
-        env["PYTHONPATH"] = _demo_pythonpath(repo_root)
+        env["PYTHONPATH"] = demo_pythonpath(repo_root)
 
         log_handle = tracking_log_path.open("w", encoding="utf-8")
         tracking_process = subprocess.Popen(
@@ -625,7 +574,7 @@ def run_email_demo(
             stdout=log_handle,
             stderr=subprocess.STDOUT,
         )
-        _wait_for_server(base_url=local_tracking_base_url)
+        wait_for_server(base_url=local_tracking_base_url, server_name="Email tracking demo server")
 
         if open_tunnel:
             tunnel_handle = start_cloudflared_quick_tunnel(
