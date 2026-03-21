@@ -26,6 +26,7 @@ from caliper_core.models import (
 from caliper_policies.engine import AssignmentEngine
 from caliper_reports import ReportGenerator
 from caliper_storage import SQLRepository, build_engine, init_db, make_session_factory
+from pydantic import ValidationError
 
 _ResponseT = TypeVar("_ResponseT", ExposureCreate, OutcomeCreate)
 
@@ -64,7 +65,13 @@ class ServiceCaliperClient:
             path="/v1/jobs",
             payload=payload.model_dump(mode="json"),
         )
-        return Job.model_validate(body)
+        try:
+            return Job.model_validate(body)
+        except ValidationError:
+            job_id = body.get("job_id") if isinstance(body, dict) else None
+            if isinstance(job_id, str) and job_id:
+                return self.get_job(job_id=job_id)
+            raise
 
     def get_job(self, *, job_id: str) -> Job:
         body = self._request(method="GET", path=f"/v1/jobs/{job_id}")
