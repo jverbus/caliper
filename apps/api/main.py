@@ -17,6 +17,12 @@ from caliper_core.models import (
     AssignRequest,
     AssignResult,
     AuditRecord,
+    AutotuneCandidate,
+    AutotuneCandidateCreate,
+    AutotunePromotion,
+    AutotuneResult,
+    AutotuneRun,
+    AutotuneRunCreate,
     ExposureCreate,
     Job,
     JobCreate,
@@ -40,6 +46,7 @@ from caliper_storage import SQLRepository
 from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import Engine
 
+from apps.api.autotune_evaluator import CandidateConfig, FrozenEvaluatorConfig, evaluate_fixed_score
 from apps.api.decision_service import get_decision_summary
 from apps.api.dependencies import (
     get_engine,
@@ -353,6 +360,165 @@ def create_app() -> FastAPI:
             max_guardrail_drop=max_guardrail_drop,
         )
         return summary.model_dump(mode="json")
+
+    @app.post(
+        "/v1/autotune/candidates",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotuneCandidate,
+    )
+    def autotune_candidate_create(
+        payload: AutotuneCandidateCreate,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> AutotuneCandidate:
+        candidate = repository.create_autotune_candidate(AutotuneCandidate(**payload.model_dump()))
+        return candidate
+
+    @app.get(
+        "/v1/autotune/candidates",
+        dependencies=[Depends(require_api_token)],
+        response_model=list[AutotuneCandidate],
+    )
+    def autotune_candidate_list(
+        experiment_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> list[AutotuneCandidate]:
+        return repository.list_autotune_candidates(experiment_id=experiment_id)
+
+    @app.post(
+        "/v1/autotune/runs",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotuneRun,
+    )
+    def autotune_run(
+        payload: AutotuneRunCreate,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> AutotuneRun:
+        candidate = repository.get_autotune_candidate(candidate_id=payload.candidate_id)
+        baseline = repository.get_autotune_candidate(candidate_id=payload.baseline_candidate_id)
+        if candidate is None or baseline is None:
+            raise HTTPException(status_code=404, detail="Candidate or baseline candidate not found")
+
+        frozen = FrozenEvaluatorConfig(
+            seed=payload.seed,
+            synthetic_user_budget=payload.budget,
+            **payload.simulation_config_snapshot,
+        )
+        eval_result = evaluate_fixed_score(
+            candidate=CandidateConfig(
+                candidate_id=candidate.candidate_id,
+                content=candidate.content,
+                complexity_score=candidate.complexity_score,
+            ),
+            frozen_config=frozen,
+        )
+
+        run = repository.create_autotune_run(AutotuneRun(**payload.model_dump()))
+        repository.save_autotune_result(
+            AutotuneResult(
+                run_id=run.run_id,
+                candidate_id=run.candidate_id,
+                score=eval_result.score,
+                score_breakdown=eval_result.score_breakdown,
+                decision_summary_snapshot={
+                    "recommendation": eval_result.recommendation,
+                },
+                analytics_snapshot=eval_result.analytics_snapshot.model_dump(mode="json"),
+                hard_fail_code=eval_result.hard_fail_code,
+            )
+        )
+        return run
+
+    @app.get(
+        "/v1/autotune/runs/{run_id}/status",
+        dependencies=[Depends(require_api_token)],
+    )
+    def autotune_status(
+        run_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> dict[str, str]:
+        run = repository.get_autotune_run(run_id=run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found")
+        return {"run_id": run_id, "status": run.status}
+
+    @app.get(
+        "/v1/autotune/runs/{run_id}/result",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotuneResult,
+    )
+    def autotune_result_get(
+        run_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> AutotuneResult:
+        result = repository.get_autotune_result(run_id=run_id)
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Result for run '{run_id}' not found")
+        return result
+
+    @app.post(
+        "/v1/autotune/runs/{run_id}/keep",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotuneResult,
+    )
+    def autotune_keep(
+        run_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+        reason: str | None = None,
+    ) -> AutotuneResult:
+        result = repository.set_autotune_result_disposition(
+            run_id=run_id,
+            disposition="keep",
+            reason=reason,
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Result for run '{run_id}' not found")
+        return result
+
+    @app.post(
+        "/v1/autotune/runs/{run_id}/discard",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotuneResult,
+    )
+    def autotune_discard(
+        run_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+        reason: str | None = None,
+    ) -> AutotuneResult:
+        result = repository.set_autotune_result_disposition(
+            run_id=run_id,
+            disposition="discard",
+            reason=reason,
+        )
+        if result is None:
+            raise HTTPException(status_code=404, detail=f"Result for run '{run_id}' not found")
+        return result
+
+    @app.post(
+        "/v1/autotune/promote",
+        dependencies=[Depends(require_api_token)],
+        response_model=AutotunePromotion,
+    )
+    def autotune_promote(
+        payload: AutotunePromotion,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> AutotunePromotion:
+        if payload.confirmation.strip() == "":
+            raise HTTPException(status_code=400, detail="confirmation is required")
+        return repository.create_autotune_promotion(payload)
+
+    @app.get("/v1/autotune/export.jsonl", dependencies=[Depends(require_api_token)])
+    def autotune_export_jsonl(
+        experiment_id: str,
+        repository: Annotated[SQLRepository, Depends(get_repository)],
+    ) -> dict[str, str]:
+        rows = [
+            result.model_dump(mode="json")
+            for result in repository.list_autotune_results(experiment_id=experiment_id)
+        ]
+        return {
+            "experiment_id": experiment_id,
+            "jsonl": "\n".join(json.dumps(row, sort_keys=True, default=str) for row in rows),
+        }
 
     @app.post(
         "/v1/jobs",
