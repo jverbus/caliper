@@ -39,9 +39,28 @@ class _FakeClient:
     def __init__(self, **_: object) -> None:
         self._responses: dict[tuple[str, str], dict[str, Any]] = {
             ("POST", "/v1/jobs"): {
+                "workspace_id": "ws-demo",
                 "job_id": "job_1",
+                "name": "Demo",
+                "surface_type": "web",
+                "objective_spec": {
+                    "reward_formula": "signup",
+                    "penalties": [],
+                    "secondary_metrics": [],
+                },
+                "guardrail_spec": {"rules": []},
+                "policy_spec": {
+                    "policy_family": "fixed_split",
+                    "params": {},
+                    "update_cadence": {"mode": "periodic", "seconds": None},
+                    "context_schema_version": None,
+                },
+                "segment_spec": {"dimensions": []},
+                "schedule_spec": {"report_cron": None},
                 "status": "draft",
+                "approval_state": "not_required",
                 "created_at": "2026-03-14T00:00:00Z",
+                "updated_at": "2026-03-14T00:00:00Z",
             },
             ("GET", "/v1/jobs/job_1"): {
                 "workspace_id": "ws-demo",
@@ -157,7 +176,7 @@ def test_service_client_core_flow(monkeypatch: pytest.MonkeyPatch) -> None:
 
     client = ServiceCaliperClient(api_url="http://localhost:8000")
     created = client.create_job(_job())
-    assert created["job_id"] == "job_1"
+    assert created.job_id == "job_1"
 
     fetched = client.get_job(job_id="job_1")
     assert fetched.job_id == "job_1"

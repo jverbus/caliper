@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import time
 from pathlib import Path
-from typing import Any
 
 import httpx
 from caliper_core.models import Job
@@ -25,8 +24,8 @@ def build_client(
     raise ValueError(msg)
 
 
-def extract_job_id(created: dict[str, Any] | Job) -> str:
-    return created["job_id"] if isinstance(created, dict) else created.job_id
+def extract_job_id(created: Job) -> str:
+    return created.job_id
 
 
 def demo_pythonpath(repo_root: Path) -> str:

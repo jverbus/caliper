@@ -26,6 +26,7 @@ from caliper_core.models import (
 from caliper_policies.engine import AssignmentEngine
 from caliper_reports import ReportGenerator
 from caliper_storage import SQLRepository, build_engine, init_db, make_session_factory
+from pydantic import ValidationError
 
 _ResponseT = TypeVar("_ResponseT", ExposureCreate, OutcomeCreate)
 
@@ -48,7 +49,7 @@ class ServiceCaliperClient:
 
     def _request(
         self, *, method: str, path: str, payload: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
+    ) -> Any:
         with httpx.Client(
             base_url=self._api_url,
             timeout=self._timeout_seconds,
@@ -56,14 +57,21 @@ class ServiceCaliperClient:
         ) as client:
             response = client.request(method, path, json=payload)
         response.raise_for_status()
-        return cast(dict[str, Any], response.json())
+        return cast(Any, response.json())
 
-    def create_job(self, payload: Job) -> dict[str, Any]:
-        return self._request(
+    def create_job(self, payload: Job) -> Job:
+        body = self._request(
             method="POST",
             path="/v1/jobs",
             payload=payload.model_dump(mode="json"),
         )
+        try:
+            return Job.model_validate(body)
+        except ValidationError:
+            job_id = body.get("job_id") if isinstance(body, dict) else None
+            if isinstance(job_id, str) and job_id:
+                return self.get_job(job_id=job_id)
+            raise
 
     def get_job(self, *, job_id: str) -> Job:
         body = self._request(method="GET", path=f"/v1/jobs/{job_id}")
@@ -156,8 +164,11 @@ class EmbeddedCaliperClient:
     def create_job(self, payload: Job) -> Job:
         return self._repository.create_job(payload)
 
-    def get_job(self, *, job_id: str) -> Job | None:
-        return self._repository.get_job(job_id)
+    def get_job(self, *, job_id: str) -> Job:
+        job = self._repository.get_job(job_id)
+        if job is None:
+            raise ValueError(f"Job '{job_id}' not found")
+        return job
 
     def update_job(self, *, job_id: str, patch: JobPatch) -> Job | None:
         return self._repository.update_job(job_id, patch)
