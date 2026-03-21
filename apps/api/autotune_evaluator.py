@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any
 from uuid import uuid4
 
-from caliper_core.decision import DecisionRecommendation
+from caliper_core.decision import DecisionRecommendation, DecisionSummary
 from pydantic import BaseModel, Field
 
 from apps.api.decision_service import get_decision_summary
@@ -128,7 +128,7 @@ def analytics_get(*, run: SimulationRun) -> AnalyticsSnapshot:
     )
 
 
-def decision_summary_get(*, analytics: AnalyticsSnapshot):
+def decision_summary_get(*, analytics: AnalyticsSnapshot) -> DecisionSummary:
     return get_decision_summary(guardrail_delta=analytics.guardrail_delta)
 
 
