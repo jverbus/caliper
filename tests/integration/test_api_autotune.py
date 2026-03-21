@@ -180,6 +180,86 @@ def test_autotune_run_auto_disposition_covers_keep_and_discard(
     assert seen_discard is True
 
 
+def test_autotune_website_demo_proving_ground_end_to_end(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    experiment_id = f"website-demo-{uuid4().hex[:8]}"
+    baseline = client.post(
+        "/v1/autotune/candidates",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_type": "prompt",
+            "editable_surface": "demo_ad_copy_templates",
+            "content": {
+                "scenario": "website_ad_copy_demo",
+                "template": "Try {{product_name}} today.",
+                "prompt": "Write concise website ad copy with one CTA.",
+            },
+            "complexity_score": 0.05,
+        },
+    )
+    assert baseline.status_code == 200
+    baseline_id = baseline.json()["candidate_id"]
+
+    candidate = client.post(
+        "/v1/autotune/candidates",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_type": "prompt",
+            "parent_candidate_id": baseline_id,
+            "editable_surface": "demo_ad_copy_templates",
+            "content": {
+                "scenario": "website_ad_copy_demo",
+                "template": "Meet {{product_name}} — start free now.",
+                "prompt": (
+                    "Write website ad copy with a clear value proposition, "
+                    "one CTA, and an urgency cue."
+                ),
+                "tone": "friendly",
+            },
+            "complexity_score": 0.10,
+        },
+    )
+    assert candidate.status_code == 200
+    candidate_id = candidate.json()["candidate_id"]
+
+    run = client.post(
+        "/v1/autotune/runs",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_id": candidate_id,
+            "baseline_candidate_id": baseline_id,
+            "seed": 20260321,
+            "budget": 1200,
+            "simulation_config_snapshot": {
+                "runtime_window_minutes": 30,
+                "segments": ["website_demo", "ad_copy"],
+            },
+            "evaluator_version": "fixed-v1",
+        },
+    )
+    assert run.status_code == 200
+    run_id = run.json()["run_id"]
+
+    result = client.get(f"/v1/autotune/runs/{run_id}/result")
+    assert result.status_code == 200
+    payload = result.json()
+
+    assert payload["run_id"] == run_id
+    assert payload["keep_discard"] in {"keep", "discard"}
+    assert payload["reason"]
+
+    score_breakdown = payload["score_breakdown"]
+    assert "candidate_score" in score_breakdown
+    assert "baseline_score" in score_breakdown
+    assert "delta_vs_baseline" in score_breakdown
+
+
+
 def test_autotune_promotion_requires_confirmation_token(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
