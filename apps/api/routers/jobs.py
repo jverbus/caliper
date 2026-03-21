@@ -16,10 +16,11 @@ from caliper_core.models import (
     PolicySnapshotCreateRequest,
     PolicySnapshotRollbackRequest,
 )
+from caliper_sdk import CaliperService
 from caliper_storage import SQLRepository
 from fastapi import APIRouter, Depends, HTTPException, status
 
-from apps.api.dependencies import get_repository, require_api_token
+from apps.api.dependencies import get_caliper_service, get_repository, require_api_token
 from apps.api.services.jobs import transition_job_state
 from apps.api.services.policy import (
     contextual_gate_failures,
@@ -38,15 +39,9 @@ router = APIRouter()
 )
 def create_job(
     payload: JobCreate,
-    repository: Annotated[SQLRepository, Depends(get_repository)],
+    service: Annotated[CaliperService, Depends(get_caliper_service)],
 ) -> JobCreateResponse:
-    created = repository.create_job(Job(**payload.model_dump()))
-    repository.append_audit(
-        workspace_id=created.workspace_id,
-        job_id=created.job_id,
-        action="job.create",
-        metadata={"status": created.status.value},
-    )
+    created = service.create_job(Job(**payload.model_dump()))
     return JobCreateResponse(
         job_id=created.job_id,
         status=created.status,

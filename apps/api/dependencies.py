@@ -5,6 +5,7 @@ from functools import lru_cache
 from typing import Annotated
 
 from caliper_core.config import CaliperSettings, load_settings
+from caliper_sdk import CaliperService
 from caliper_storage import SQLRepository, init_engine_from_settings, make_session_factory
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -43,6 +44,12 @@ def get_repository(
     session_factory: Annotated[sessionmaker[Session], Depends(get_session_factory)],
 ) -> SQLRepository:
     return SQLRepository(session_factory)
+
+
+def get_caliper_service(
+    repository: Annotated[SQLRepository, Depends(get_repository)],
+) -> CaliperService:
+    return CaliperService(repository=repository)
 
 
 def require_api_token(

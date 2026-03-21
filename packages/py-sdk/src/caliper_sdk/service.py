@@ -43,9 +43,22 @@ class CaliperService:
         self._report_generator = report_generator or ReportGenerator()
 
     def create_job(self, payload: Job) -> Job:
-        return self._repository.create_job(payload)
+        created = self._repository.create_job(payload)
+        self._repository.append_audit(
+            workspace_id=created.workspace_id,
+            job_id=created.job_id,
+            action="job.create",
+            metadata={"status": created.status.value},
+        )
+        return created
 
     def add_arms(self, *, job_id: str, payload: ArmBulkRegisterRequest) -> ArmBulkRegisterResponse:
+        job = self._repository.get_job(job_id)
+        if job is None:
+            raise ValueError(f"Job '{job_id}' not found.")
+        if payload.workspace_id != job.workspace_id:
+            raise ValueError("workspace_id does not match the job workspace.")
+
         registered: list[Arm] = []
         for arm_input in payload.arms:
             registered.append(
@@ -57,11 +70,17 @@ class CaliperService:
                     )
                 )
             )
+        self._repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            action="arm.batch_register",
+            metadata={"registered_count": len(registered)},
+        )
         return ArmBulkRegisterResponse(
             workspace_id=payload.workspace_id,
             job_id=job_id,
             registered_count=len(registered),
-            arms=registered,
+            arms=self._repository.list_arms(workspace_id=payload.workspace_id, job_id=job_id),
         )
 
     def assign(self, payload: AssignRequest) -> AssignResult:
@@ -209,26 +228,55 @@ class CaliperService:
         )
 
     def pause_job(self, *, job_id: str, payload: JobStateTransitionRequest) -> Job | None:
-        return self._repository.set_job_state(
+        updated = self._repository.set_job_state(
             workspace_id=payload.workspace_id,
             job_id=job_id,
             status=JobStatus.PAUSED,
             approval_state=payload.approval_state,
         )
+        if updated is not None:
+            self._repository.append_audit(
+                workspace_id=updated.workspace_id,
+                job_id=updated.job_id,
+                action="job.pause",
+                metadata={
+                    "status": updated.status.value,
+                    "approval_state": (
+                        updated.approval_state.value if updated.approval_state is not None else None
+                    ),
+                },
+            )
+        return updated
 
     def resume_job(self, *, job_id: str, payload: JobStateTransitionRequest) -> Job | None:
         approval_state = payload.approval_state or ApprovalState.APPROVED
-        return self._repository.set_job_state(
+        updated = self._repository.set_job_state(
             workspace_id=payload.workspace_id,
             job_id=job_id,
             status=JobStatus.ACTIVE,
             approval_state=approval_state,
         )
+        if updated is not None:
+            self._repository.append_audit(
+                workspace_id=updated.workspace_id,
+                job_id=updated.job_id,
+                action="job.resume",
+                metadata={
+                    "status": updated.status.value,
+                    "approval_state": (
+                        updated.approval_state.value if updated.approval_state is not None else None
+                    ),
+                },
+            )
+        return updated
 
     def generate_report(self, *, job_id: str, payload: ReportGenerateRequest) -> ReportPayload:
         job = self._repository.get_job(job_id)
         if job is None:
             raise ValueError(f"Job '{job_id}' not found")
+        if payload.workspace_id != job.workspace_id:
+            raise ValueError("workspace_id does not match the job workspace.")
+
         arms = self._repository.list_arms(payload.workspace_id, job_id)
         decisions = self._repository.list_decisions(payload.workspace_id, job_id)
         exposures = self._repository.list_exposures(payload.workspace_id, job_id)
@@ -242,7 +290,14 @@ class CaliperService:
             outcomes=outcomes,
             guardrails=guardrails,
         )
-        return self._repository.save_report(generated)
+        report = self._repository.save_report(generated)
+        self._repository.append_audit(
+            workspace_id=payload.workspace_id,
+            job_id=job_id,
+            action="report.generated",
+            metadata={"report_id": report.report_id},
+        )
+        return report
 
     def _idempotent_create(
         self,
