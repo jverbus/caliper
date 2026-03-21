@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import pytest
-
 from caliper_storage.engine import dispose_tracked_engines
 
 
