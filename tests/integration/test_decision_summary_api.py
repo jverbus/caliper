@@ -19,6 +19,31 @@ def _reset_dependency_caches() -> None:
         ({"guardrail_regression": "true"}, "ROLLBACK"),
         ({}, "HOLD"),
         ({"guardrail_delta": "-0.08", "max_guardrail_drop": "0.05"}, "ROLLBACK"),
+        ({"guardrail_regression": "false"}, "SHIP"),
+        (
+            {
+                "guardrail_regression": "false",
+                "confidence": "0.92",
+                "confidence_threshold": "0.0",
+            },
+            "RAMP",
+        ),
+        (
+            {
+                "guardrail_regression": "false",
+                "confidence": "0.95",
+                "confidence_threshold": "0.0",
+            },
+            "SHIP",
+        ),
+        (
+            {
+                "guardrail_regression": "false",
+                "confidence": "0.94",
+                "confidence_threshold": "0.96",
+            },
+            "HOLD",
+        ),
     ],
 )
 def test_decision_summary_endpoint_returns_canonical_payload(

@@ -11,7 +11,7 @@ def test_autotune_disposition_keeps_when_delta_over_threshold_and_penalty_ok() -
         hard_fail_code=None,
     )
     assert keep_discard == "keep"
-    assert reason.startswith("kept:")
+    assert reason == "kept: delta 0.0300 > 0.0100 with complexity penalty 0.0300"
 
 
 def test_autotune_disposition_discards_when_delta_below_threshold() -> None:
@@ -22,7 +22,7 @@ def test_autotune_disposition_discards_when_delta_below_threshold() -> None:
         hard_fail_code=None,
     )
     assert keep_discard == "discard"
-    assert "keep threshold" in reason
+    assert reason == "discarded: delta 0.0050 <= keep threshold 0.0100"
 
 
 def test_autotune_disposition_discards_on_complexity_penalty_cap() -> None:
@@ -33,7 +33,7 @@ def test_autotune_disposition_discards_on_complexity_penalty_cap() -> None:
         hard_fail_code=None,
     )
     assert keep_discard == "discard"
-    assert "complexity penalty" in reason
+    assert reason == "discarded: complexity penalty 0.0810 > max 0.0800"
 
 
 def test_autotune_disposition_discards_on_hard_fail() -> None:
@@ -44,7 +44,7 @@ def test_autotune_disposition_discards_on_hard_fail() -> None:
         hard_fail_code="ROLLBACK_RECOMMENDATION",
     )
     assert keep_discard == "discard"
-    assert "hard fail" in reason
+    assert reason == "discarded: hard fail (ROLLBACK_RECOMMENDATION)"
 
 
 def test_derived_complexity_score_is_never_below_declared() -> None:
