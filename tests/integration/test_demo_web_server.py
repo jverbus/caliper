@@ -36,7 +36,7 @@ def test_demo_web_server_tracks_render_click_conversion_and_report(tmp_path: Pat
         ),
     )
     created = client.create_job(job)
-    job_id = created.job_id if isinstance(created, Job) else created["job_id"]
+    job_id = created.job_id
 
     variants_dir = tmp_path / "variants"
     variants_dir.mkdir(parents=True, exist_ok=True)

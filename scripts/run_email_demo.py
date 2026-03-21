@@ -214,8 +214,9 @@ def _active_arm_ids(client: DemoClient, *, workspace_id: str, job_id: str) -> li
 
 
 def _job_sendable(client: DemoClient, *, job_id: str) -> bool:
-    job = client.get_job(job_id=job_id)
-    if job is None:
+    try:
+        job = client.get_job(job_id=job_id)
+    except ValueError:
         return False
     return job.status != JobStatus.PAUSED
 
