@@ -14,15 +14,16 @@ def _reset_dependency_caches() -> None:
 
 
 @pytest.mark.parametrize(
-    ("guardrail_regression", "expected_recommendation"),
+    ("params", "expected_recommendation"),
     [
-        ("true", "ROLLBACK"),
-        (None, "HOLD"),
+        ({"guardrail_regression": "true"}, "ROLLBACK"),
+        ({}, "HOLD"),
+        ({"guardrail_delta": "-0.08", "max_guardrail_drop": "0.05"}, "ROLLBACK"),
     ],
 )
 def test_decision_summary_endpoint_returns_canonical_payload(
     monkeypatch: pytest.MonkeyPatch,
-    guardrail_regression: str | None,
+    params: dict[str, str],
     expected_recommendation: str,
 ) -> None:
     monkeypatch.setenv("CALIPER_PROFILE", "embedded")
@@ -30,9 +31,6 @@ def test_decision_summary_endpoint_returns_canonical_payload(
 
     client = TestClient(create_app())
 
-    params = {}
-    if guardrail_regression is not None:
-        params["guardrail_regression"] = guardrail_regression
     response = client.get("/decision/summary", params=params)
 
     assert response.status_code == 200

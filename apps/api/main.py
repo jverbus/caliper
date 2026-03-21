@@ -342,8 +342,16 @@ def create_app() -> FastAPI:
         return {"service": "caliper-api", "api_version": "v1"}
 
     @app.get("/decision/summary")
-    def decision_summary(guardrail_regression: bool | None = None) -> dict[str, str]:
-        summary = get_decision_summary(guardrail_regression=guardrail_regression)
+    def decision_summary(
+        guardrail_regression: bool | None = None,
+        guardrail_delta: float | None = None,
+        max_guardrail_drop: float = 0.05,
+    ) -> dict[str, str]:
+        summary = get_decision_summary(
+            guardrail_regression=guardrail_regression,
+            guardrail_delta=guardrail_delta,
+            max_guardrail_drop=max_guardrail_drop,
+        )
         return summary.model_dump(mode="json")
 
     @app.post(
