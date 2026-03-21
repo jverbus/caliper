@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 from pathlib import Path
 from typing import Any
 
@@ -18,38 +17,8 @@ from caliper_core.models import (
     ReportGenerateRequest,
     SurfaceType,
 )
-from caliper_sdk import EmbeddedCaliperClient, ServiceCaliperClient
 
-type DemoClient = EmbeddedCaliperClient | ServiceCaliperClient
-
-
-def _sqlite_db_path(db_url: str) -> Path | None:
-    if not db_url.startswith("sqlite:///"):
-        return None
-
-    sqlite_path = db_url.removeprefix("sqlite:///")
-    if not sqlite_path or sqlite_path == ":memory:":
-        return None
-
-    db_file = Path(sqlite_path)
-    if not db_file.is_absolute():
-        db_file = Path.cwd() / db_file
-    return db_file
-
-
-def _ensure_sqlite_parent_dir(db_url: str) -> None:
-    db_file = _sqlite_db_path(db_url)
-    if db_file is None:
-        return
-    db_file.parent.mkdir(parents=True, exist_ok=True)
-
-
-def _reset_sqlite_file(db_url: str) -> None:
-    db_file = _sqlite_db_path(db_url)
-    if db_file is None:
-        return
-    if db_file.exists():
-        db_file.unlink()
+from examples.common import build_demo_client, reset_sqlite_file, write_artifacts
 
 
 def _build_demo_job(*, workspace_id: str, name: str) -> Job:
@@ -70,18 +39,11 @@ def _build_demo_job(*, workspace_id: str, name: str) -> Job:
     )
 
 
-def _demo_client(*, mode: str, db_url: str, api_url: str, api_token: str | None) -> DemoClient:
-    if mode == "embedded":
-        _ensure_sqlite_parent_dir(db_url)
-        return EmbeddedCaliperClient(db_url=db_url)
-    return ServiceCaliperClient(api_url=api_url, api_token=api_token)
-
-
 def run_demo(*, mode: str, db_url: str, api_url: str, api_token: str | None) -> dict[str, Any]:
     workspace_id = "ws-workflow-demo"
     if mode == "embedded":
-        _reset_sqlite_file(db_url)
-    client = _demo_client(mode=mode, db_url=db_url, api_url=api_url, api_token=api_token)
+        reset_sqlite_file(db_url)
+    client = build_demo_client(mode=mode, db_url=db_url, api_url=api_url, api_token=api_token)
 
     created = client.create_job(
         _build_demo_job(workspace_id=workspace_id, name=f"Workflow demo ({mode})")
@@ -158,13 +120,6 @@ def run_demo(*, mode: str, db_url: str, api_url: str, api_token: str | None) -> 
     return report_dict
 
 
-def _write_artifacts(*, report: dict[str, Any], output_dir: Path) -> None:
-    output_dir.mkdir(parents=True, exist_ok=True)
-    (output_dir / "report.json").write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    (output_dir / "report.md").write_text(report["markdown"], encoding="utf-8")
-    (output_dir / "report.html").write_text(report["html"], encoding="utf-8")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run Caliper workflow demo")
     parser.add_argument("--mode", choices=["embedded", "service"], default="embedded")
@@ -181,7 +136,7 @@ def main() -> None:
         api_token=args.api_token,
     )
     output_dir = Path(args.output_dir or f"docs/fixtures/workflow_demo/{args.mode}")
-    _write_artifacts(report=report, output_dir=output_dir)
+    write_artifacts(report=report, output_dir=output_dir)
 
     print(f"workflow demo complete ({args.mode})")
     print(f"report_id={report['report_id']} assignments={report['assignment_counts']}")
