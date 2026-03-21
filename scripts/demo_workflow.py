@@ -1,0 +1,67 @@
+from __future__ import annotations
+
+import os
+import time
+from pathlib import Path
+from typing import Any
+
+import httpx
+from caliper_core.models import Job
+from caliper_sdk import EmbeddedCaliperClient, ServiceCaliperClient
+
+
+def build_client(
+    *,
+    backend: str,
+    db_url: str,
+    api_url: str,
+    api_token: str | None,
+) -> EmbeddedCaliperClient | ServiceCaliperClient:
+    if backend == "service":
+        return ServiceCaliperClient(api_url=api_url, api_token=api_token)
+    if backend == "embedded":
+        return EmbeddedCaliperClient(db_url=db_url)
+    msg = f"Unsupported backend: {backend!r}"
+    raise ValueError(msg)
+
+
+def extract_job_id(created: dict[str, Any] | Job) -> str:
+    return created["job_id"] if isinstance(created, dict) else created.job_id
+
+
+def demo_pythonpath(repo_root: Path) -> str:
+    entries = [
+        str(repo_root),
+        str(repo_root / "packages/py-caliper-core/src"),
+        str(repo_root / "packages/py-caliper-storage/src"),
+        str(repo_root / "packages/py-caliper-events/src"),
+        str(repo_root / "packages/py-caliper-policies/src"),
+        str(repo_root / "packages/py-caliper-reward/src"),
+        str(repo_root / "packages/py-caliper-reports/src"),
+        str(repo_root / "packages/py-caliper-adapters/src"),
+        str(repo_root / "packages/py-sdk/src"),
+        str(repo_root / "apps"),
+    ]
+    existing = os.environ.get("PYTHONPATH")
+    if existing:
+        entries.append(existing)
+    return os.pathsep.join(entries)
+
+
+def wait_for_server(
+    *,
+    base_url: str,
+    timeout_seconds: float = 20.0,
+    server_name: str = "Server",
+) -> None:
+    deadline = time.time() + timeout_seconds
+    while time.time() < deadline:
+        try:
+            response = httpx.get(f"{base_url}/healthz", timeout=1.5)
+            if response.status_code == 200:
+                return
+        except httpx.HTTPError:
+            pass
+        time.sleep(0.2)
+    msg = f"{server_name} did not become healthy within {timeout_seconds:.1f}s"
+    raise RuntimeError(msg)
