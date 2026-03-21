@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 from collections.abc import Mapping
 from typing import Annotated, Any
 
@@ -76,6 +77,7 @@ _ALLOWED_AUTOTUNE_EDITABLE_SURFACES = {
 
 _AUTOTUNE_KEEP_MIN_DELTA = 0.01
 _AUTOTUNE_MAX_COMPLEXITY_PENALTY = 0.08
+_AUTOTUNE_PROMOTION_CONFIRMATION = "CONFIRM_AUTOTUNE_PROMOTION"
 
 
 def _count_changed_fields(candidate: Any, baseline: Any) -> int:
@@ -172,6 +174,79 @@ def _autotune_disposition(
         f"kept: delta {delta:.4f} > {_AUTOTUNE_KEEP_MIN_DELTA:.4f} with complexity "
         f"penalty {complexity_penalty:.4f}",
     )
+
+
+def _autotune_diff_summary(
+    *,
+    candidate: AutotuneCandidate,
+    baseline: AutotuneCandidate,
+    result: AutotuneResult,
+) -> str:
+    changed_top_level = sorted(
+        key
+        for key in set(candidate.content.keys()) | set(baseline.content.keys())
+        if candidate.content.get(key) != baseline.content.get(key)
+    )
+    delta = result.score_breakdown.get("delta_vs_baseline", result.score)
+    changed = ", ".join(changed_top_level) if changed_top_level else "no top-level fields"
+    return (
+        f"what_changed: {changed}; "
+        f"why_better: candidate score delta vs baseline = {delta:.4f}, "
+        f"disposition={result.keep_discard}"
+    )
+
+
+def _run_promotion_replay_check(
+    *,
+    candidate: AutotuneCandidate,
+    baseline: AutotuneCandidate,
+    run: AutotuneRun,
+    result: AutotuneResult,
+) -> dict[str, Any]:
+    frozen = FrozenEvaluatorConfig(
+        seed=run.seed,
+        synthetic_user_budget=run.budget,
+        **run.simulation_config_snapshot,
+    )
+    replay_candidate_complexity, _ = _derived_complexity_score(
+        candidate_content=candidate.content,
+        baseline_content=baseline.content,
+        declared_complexity_score=candidate.complexity_score,
+    )
+    replay_candidate = evaluate_fixed_score(
+        candidate=_to_candidate_config(candidate, complexity_score=replay_candidate_complexity),
+        frozen_config=frozen,
+    )
+    replay_baseline = evaluate_fixed_score(
+        candidate=_to_candidate_config(baseline),
+        frozen_config=frozen,
+    )
+    replay_delta = replay_candidate.score - replay_baseline.score
+    expected_delta = result.score_breakdown.get("delta_vs_baseline", result.score)
+    if math.isinf(replay_delta) and math.isinf(expected_delta) and (replay_delta == expected_delta):
+        delta_diff = 0.0
+    else:
+        delta_diff = abs(replay_delta - expected_delta)
+    expected_recommendation = result.decision_summary_snapshot.get("recommendation")
+    passed = (
+        delta_diff <= 1e-9
+        and replay_candidate.recommendation.value == expected_recommendation
+    )
+
+    def _safe_float(value: float) -> float | str:
+        return value if math.isfinite(value) else str(value)
+
+    return {
+        "passed": passed,
+        "expected_delta_vs_baseline": _safe_float(expected_delta),
+        "actual_delta_vs_baseline": _safe_float(replay_delta),
+        "delta_diff": _safe_float(delta_diff),
+        "expected_recommendation": result.decision_summary_snapshot.get("recommendation"),
+        "actual_recommendation": replay_candidate.recommendation.value,
+        "seed": run.seed,
+        "budget": run.budget,
+        "simulation_config_snapshot": run.simulation_config_snapshot,
+    }
 
 
 def _transition_job_state(
@@ -666,9 +741,79 @@ def create_app() -> FastAPI:
         payload: AutotunePromotion,
         repository: Annotated[SQLRepository, Depends(get_repository)],
     ) -> AutotunePromotion:
-        if payload.confirmation.strip() == "":
-            raise HTTPException(status_code=400, detail="confirmation is required")
-        return repository.create_autotune_promotion(payload)
+        if payload.confirmation.strip() != _AUTOTUNE_PROMOTION_CONFIRMATION:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "confirmation token mismatch; use "
+                    f"'{_AUTOTUNE_PROMOTION_CONFIRMATION}'"
+                ),
+            )
+
+        run = repository.get_autotune_run(run_id=payload.run_id)
+        if run is None:
+            raise HTTPException(status_code=404, detail=f"Run '{payload.run_id}' not found")
+        result = repository.get_autotune_result(run_id=payload.run_id)
+        if result is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Result for run '{payload.run_id}' not found",
+            )
+        candidate = repository.get_autotune_candidate(candidate_id=payload.candidate_id)
+        if candidate is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Candidate '{payload.candidate_id}' not found",
+            )
+        if run.candidate_id != payload.candidate_id:
+            raise HTTPException(
+                status_code=400,
+                detail="candidate_id must match run.candidate_id for promotion",
+            )
+        baseline = repository.get_autotune_candidate(candidate_id=run.baseline_candidate_id)
+        if baseline is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Baseline candidate '{run.baseline_candidate_id}' not found",
+            )
+
+        replay_check = _run_promotion_replay_check(
+            candidate=candidate,
+            baseline=baseline,
+            run=run,
+            result=result,
+        )
+        if not replay_check["passed"]:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "message": "pre-promotion replay check failed",
+                    "replay_check": replay_check,
+                },
+            )
+
+        promotion_diff_summary = payload.diff_summary or _autotune_diff_summary(
+            candidate=candidate,
+            baseline=baseline,
+            result=result,
+        )
+        promotion = payload.model_copy(
+            update={
+                "target_surface": _validate_autotune_editable_surface(payload.target_surface),
+                "diff_summary": json.dumps(
+                    {
+                        "summary": promotion_diff_summary,
+                        "run_id": payload.run_id,
+                        "promoted_content": candidate.content,
+                        "replay_check": replay_check,
+                    },
+                    sort_keys=True,
+                ),
+                "promoted_content": candidate.content,
+                "replay_check": replay_check,
+            }
+        )
+        return repository.create_autotune_promotion(promotion)
 
     @app.get("/v1/autotune/export.jsonl", dependencies=[Depends(require_api_token)])
     def autotune_export_jsonl(

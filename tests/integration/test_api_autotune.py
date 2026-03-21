@@ -93,13 +93,18 @@ def test_autotune_lifecycle_end_to_end(monkeypatch: pytest.MonkeyPatch) -> None:
         "/v1/autotune/promote",
         json={
             "candidate_id": candidate_id,
+            "run_id": run_id,
             "promoted_by": "human-operator",
             "target_surface": "caliper://agent_playbook",
-            "confirmation": "CONFIRM_PROMOTION",
-            "diff_summary": "Prompt wording improved",
+            "confirmation": "CONFIRM_AUTOTUNE_PROMOTION",
         },
     )
     assert promoted.status_code == 200
+    diff_payload = promoted.json()["diff_summary"]
+    assert '"summary": "what_changed:' in diff_payload
+    assert '"run_id":' in diff_payload
+    assert promoted.json()["promoted_content"] == {"prompt": "candidate"}
+    assert promoted.json()["replay_check"]["passed"] is True
 
     exported = client.get("/v1/autotune/export.jsonl", params={"experiment_id": experiment_id})
     assert exported.status_code == 200
@@ -173,6 +178,67 @@ def test_autotune_run_auto_disposition_covers_keep_and_discard(
 
     assert seen_keep is True
     assert seen_discard is True
+
+
+def test_autotune_promotion_requires_confirmation_token(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("CALIPER_PROFILE", "embedded")
+    _reset_dependency_caches()
+    client = TestClient(create_app())
+
+    experiment_id = f"exp-{uuid4().hex[:8]}"
+    baseline = client.post(
+        "/v1/autotune/candidates",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_type": "prompt",
+            "editable_surface": "mcp_prompt_text",
+            "content": {"prompt": "baseline"},
+            "complexity_score": 0.0,
+        },
+    )
+    baseline_id = baseline.json()["candidate_id"]
+
+    candidate = client.post(
+        "/v1/autotune/candidates",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_type": "prompt",
+            "parent_candidate_id": baseline_id,
+            "editable_surface": "mcp_prompt_text",
+            "content": {"prompt": "candidate"},
+            "complexity_score": 0.0,
+        },
+    )
+    candidate_id = candidate.json()["candidate_id"]
+
+    run = client.post(
+        "/v1/autotune/runs",
+        json={
+            "experiment_id": experiment_id,
+            "candidate_id": candidate_id,
+            "baseline_candidate_id": baseline_id,
+            "seed": 99,
+            "budget": 800,
+            "simulation_config_snapshot": {"runtime_window_minutes": 30},
+            "evaluator_version": "fixed-v1",
+        },
+    )
+    run_id = run.json()["run_id"]
+
+    promoted = client.post(
+        "/v1/autotune/promote",
+        json={
+            "candidate_id": candidate_id,
+            "run_id": run_id,
+            "promoted_by": "human-operator",
+            "target_surface": "caliper://agent_playbook",
+            "confirmation": "CONFIRM_PROMOTION",
+        },
+    )
+    assert promoted.status_code == 400
+    assert "confirmation token mismatch" in promoted.json()["detail"]
 
 
 def test_autotune_candidate_rejects_forbidden_surface(
