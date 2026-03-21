@@ -32,9 +32,7 @@ from apps.worker.scheduler_backends import ScheduledTaskDispatch
 
 
 def _reset_dependency_caches() -> None:
-    dependencies.get_settings.cache_clear()
-    dependencies._cached_engine.cache_clear()
-    dependencies._cached_session_factory.cache_clear()
+    dependencies.reset_dependency_caches()
 
 
 def _active_job() -> Job:

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from weakref import WeakSet
+
 from caliper_core.config import CaliperSettings
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -7,12 +9,21 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from caliper_storage.migrations import upgrade
 
+_TRACKED_ENGINES: WeakSet[Engine] = WeakSet()
+
 
 def build_engine(db_url: str) -> Engine:
     connect_args: dict[str, object] = {}
     if db_url.startswith("sqlite"):
         connect_args["check_same_thread"] = False
-    return create_engine(db_url, future=True, connect_args=connect_args)
+    engine = create_engine(db_url, future=True, connect_args=connect_args)
+    _TRACKED_ENGINES.add(engine)
+    return engine
+
+
+def dispose_tracked_engines() -> None:
+    for engine in list(_TRACKED_ENGINES):
+        engine.dispose()
 
 
 def init_db(engine: Engine) -> None:
