@@ -25,3 +25,14 @@ def test_computed_guardrail_regression_returns_rollback() -> None:
     )
 
     assert summary.recommendation == DecisionRecommendation.ROLLBACK
+
+
+def test_decision_service_supports_policy_threshold_simulation() -> None:
+    summary = get_decision_summary(
+        guardrail_regression=False,
+        confidence=0.93,
+        confidence_threshold=0.92,
+        policy_version="sim-v2",
+    )
+
+    assert summary.recommendation == DecisionRecommendation.RAMP

@@ -564,11 +564,17 @@ def create_app() -> FastAPI:
         guardrail_regression: bool | None = None,
         guardrail_delta: float | None = None,
         max_guardrail_drop: float = 0.05,
+        confidence: float | None = None,
+        confidence_threshold: float = 0.0,
+        policy_version: str = "v1",
     ) -> dict[str, str]:
         summary = get_decision_summary(
             guardrail_regression=guardrail_regression,
             guardrail_delta=guardrail_delta,
             max_guardrail_drop=max_guardrail_drop,
+            confidence=confidence,
+            confidence_threshold=confidence_threshold,
+            policy_version=policy_version,
         )
         return summary.model_dump(mode="json")
 
