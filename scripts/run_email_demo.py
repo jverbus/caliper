@@ -49,7 +49,7 @@ from caliper_storage.sqlalchemy_models import ScheduledTaskRow
 from sqlalchemy.orm import Session, sessionmaker
 
 from apps.worker.loop import WorkerLoop
-from scripts.demo_workflow import build_client, demo_pythonpath, extract_job_id, wait_for_server
+from scripts.demo_workflow import build_client, extract_job_id, wait_for_server
 from scripts.tunnel_helpers import (
     QuickTunnelHandle,
     normalize_public_base_url,
@@ -556,7 +556,6 @@ def run_email_demo(
         repo_root = Path(__file__).resolve().parents[1]
         env = os.environ.copy()
         env["CALIPER_DEMO_EMAIL_CONFIG"] = str(tracking_config_path.resolve())
-        env["PYTHONPATH"] = demo_pythonpath(repo_root)
 
         log_handle = tracking_log_path.open("w", encoding="utf-8")
         tracking_process = subprocess.Popen(

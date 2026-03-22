@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "caliper"
 version = "0.1.0"
@@ -28,12 +32,13 @@ dev = [
 ]
 
 [tool.uv]
-package = false
+package = true
 
-[tool.pytest.ini_options]
-addopts = "-q"
-testpaths = ["tests"]
-pythonpath = [
+[tool.setuptools]
+py-modules = []
+
+[tool.setuptools.packages.find]
+where = [
   ".",
   "packages/py-caliper-core/src",
   "packages/py-caliper-storage/src",
@@ -45,6 +50,24 @@ pythonpath = [
   "packages/py-caliper-ope/src",
   "packages/py-sdk/src",
 ]
+include = [
+  "apps*",
+  "examples*",
+  "scripts*",
+  "caliper_core*",
+  "caliper_storage*",
+  "caliper_events*",
+  "caliper_policies*",
+  "caliper_reward*",
+  "caliper_reports*",
+  "caliper_adapters*",
+  "caliper_ope*",
+  "caliper_sdk*",
+]
+
+[tool.pytest.ini_options]
+addopts = "-q"
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
@@ -62,10 +85,3 @@ warn_return_any = true
 no_implicit_optional = true
 pretty = true
 explicit_package_bases = true
-mypy_path = [
-  ".",
-  "packages/py-caliper-core/src",
-  "packages/py-caliper-storage/src",
-  "packages/py-caliper-events/src",
-  "packages/py-sdk/src",
-]
