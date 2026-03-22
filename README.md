@@ -12,6 +12,8 @@ This repository contains the v1 implementation scaffold and core substrate, desi
 
 - `apps/` runnable entry points (`api`, `worker`, `cli`)
 - `packages/` modular domain/runtime packages
+  - default path: core/adapters/policies/storage/reports/events/sdk used by embedded + service flows
+  - experimental seams are namespaced (for example `caliper_adapters.experimental.*`) and opt-in
 - `examples/` workflow, web, and email demos
 - `docs/execution/` frozen execution pack and build spec
 - `docs/adr/` architecture decision records
