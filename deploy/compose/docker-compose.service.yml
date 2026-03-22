@@ -24,7 +24,6 @@ services:
       CALIPER_PROFILE: service
       CALIPER_POSTGRES_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
       CALIPER_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
-      PYTHONPATH: packages/py-caliper-core/src:packages/py-caliper-storage/src:packages/py-caliper-events/src:packages/py-caliper-policies/src:packages/py-caliper-reward/src:packages/py-caliper-reports/src:packages/py-caliper-adapters/src:packages/py-sdk/src:apps
     depends_on:
       postgres:
         condition: service_healthy
@@ -41,7 +40,6 @@ services:
       CALIPER_PROFILE: service
       CALIPER_POSTGRES_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
       CALIPER_DB_URL: postgresql+psycopg://postgres:postgres@postgres:5432/caliper
-      PYTHONPATH: packages/py-caliper-core/src:packages/py-caliper-storage/src:packages/py-caliper-events/src:packages/py-caliper-policies/src:packages/py-caliper-reward/src:packages/py-caliper-reports/src:packages/py-caliper-adapters/src:packages/py-sdk/src:apps
     depends_on:
       postgres:
         condition: service_healthy

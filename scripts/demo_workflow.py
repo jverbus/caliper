@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-import os
 import time
-from pathlib import Path
 
 import httpx
 from caliper_core.models import Job
@@ -26,25 +24,6 @@ def build_client(
 
 def extract_job_id(created: Job) -> str:
     return created.job_id
-
-
-def demo_pythonpath(repo_root: Path) -> str:
-    entries = [
-        str(repo_root),
-        str(repo_root / "packages/py-caliper-core/src"),
-        str(repo_root / "packages/py-caliper-storage/src"),
-        str(repo_root / "packages/py-caliper-events/src"),
-        str(repo_root / "packages/py-caliper-policies/src"),
-        str(repo_root / "packages/py-caliper-reward/src"),
-        str(repo_root / "packages/py-caliper-reports/src"),
-        str(repo_root / "packages/py-caliper-adapters/src"),
-        str(repo_root / "packages/py-sdk/src"),
-        str(repo_root / "apps"),
-    ]
-    existing = os.environ.get("PYTHONPATH")
-    if existing:
-        entries.append(existing)
-    return os.pathsep.join(entries)
 
 
 def wait_for_server(

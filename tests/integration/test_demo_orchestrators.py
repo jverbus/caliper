@@ -13,12 +13,6 @@ import pytest
 from scripts.run_email_demo import run_email_demo
 from scripts.run_landing_page_demo import run_landing_page_demo
 
-PYTHONPATH = (
-    "packages/py-caliper-core/src:packages/py-caliper-storage/src:packages/py-caliper-events/src:"
-    "packages/py-caliper-policies/src:packages/py-caliper-reward/src:packages/py-caliper-reports/src:"
-    "packages/py-caliper-adapters/src:packages/py-sdk/src:apps"
-)
-
 
 def _free_port() -> int:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
@@ -47,7 +41,6 @@ def _start_service_api(tmp_path: Path) -> tuple[subprocess.Popen[bytes], str]:
     env = os.environ.copy()
     env["CALIPER_PROFILE"] = "embedded"
     env["CALIPER_DB_URL"] = f"sqlite:///{db_path.as_posix()}"
-    env["PYTHONPATH"] = PYTHONPATH
 
     api_proc = subprocess.Popen(
         [
