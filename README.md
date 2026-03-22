@@ -15,7 +15,8 @@ This repository contains the v1 implementation scaffold and core substrate, desi
   - default path: core/adapters/policies/storage/reports/events/sdk used by embedded + service flows
   - experimental seams are namespaced (for example `caliper_adapters.experimental.*`) and opt-in
 - `examples/` workflow, web, and email demos
-- `docs/execution/` frozen execution pack and build spec
+- `docs/README.md` concise docs index (architecture, operations, demos, autotune)
+- `docs/archive/execution-pack/` frozen execution/build-history pack
 - `docs/adr/` architecture decision records
 - `tests/` unit, integration, property, replay, and load tests
 
@@ -33,8 +34,8 @@ make seed-demo-data
 
 For full machine setup + hardening runbooks, use:
 
-- `docs/execution/PACKAGING_INSTALL_FLOW.md`
-- `docs/execution/BACKUP_RESTORE_RUNBOOK.md`
+- `docs/archive/execution-pack/PACKAGING_INSTALL_FLOW.md`
+- `docs/archive/execution-pack/BACKUP_RESTORE_RUNBOOK.md`
 
 ## Local pre-commit guardrails
 
