@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from caliper_adapters import OrgRouterAdapter
+from caliper_adapters.experimental import OrgRouterAdapter
 from caliper_core.models import (
     AssignResult,
     DecisionDiagnostics,
